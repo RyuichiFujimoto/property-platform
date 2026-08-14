@@ -1,4 +1,4 @@
-import sql from '@/lib/db';
+import { getSql } from '@/lib/db';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
 
 export interface PublicBuilding {
@@ -56,6 +56,9 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
   if (isPreviewMode()) {
     return fixtureMansion;
   }
+
+  const sql = getSql();
+  if (!sql) return null;
 
   const [mansion] = await sql`
     SELECT id, public_id, project_id, public_status, review_status
