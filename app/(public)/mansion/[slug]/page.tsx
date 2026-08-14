@@ -149,7 +149,7 @@ export default async function MansionDetailPage({ params }: Props) {
           マイマンションに登録すると、自宅の参考価格や相場をいつでも確認できます。
         </p>
         <a
-          href="/register"
+          href={`/register?mansion=${encodeURIComponent(data.slug)}`}
           className="mt-4 inline-block rounded-lg bg-slate-900 px-6 py-3 text-white hover:bg-slate-800"
         >
           マイマンションに登録して、今の価格を確認
