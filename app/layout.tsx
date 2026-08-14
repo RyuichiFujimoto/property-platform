@@ -1,4 +1,8 @@
-export const metadata = {
+import type { Metadata } from 'next';
+import { siteUrl } from '@/lib/site';
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: '不動産SEOポータル MVP',
 };
 

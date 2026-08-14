@@ -25,7 +25,7 @@ export interface PublicMansion {
   builtMonth: number | null;
   totalUnits: number | null;
   developer: string | null;
-  'constructor': string | null;
+  constructorName: string | null;
   managementCompany: string | null;
   structure: string | null;
   mansionType: string | null;
@@ -33,7 +33,29 @@ export interface PublicMansion {
   buildings: PublicBuilding[];
 }
 
-function isPreviewMode(): boolean {
+interface MansionRow {
+  id: string;
+  public_id: string;
+}
+
+interface BuildingRow {
+  id: string;
+  canonical_name: string | null;
+  building_label: string | null;
+}
+
+interface AttributeRow {
+  entity_id: string;
+  attribute_name: string;
+  attribute_value: string | null;
+}
+
+/**
+ * プレビュー用の架空データを返してよい環境かどうか。
+ * production では環境変数に関係なく必ず false を返す。
+ */
+export function isPreviewMode(): boolean {
+  if (process.env.VERCEL_ENV === 'production') return false;
   return (
     process.env.ALLOW_PREVIEW_DATA === 'true' ||
     process.env.VERCEL_ENV === 'preview' ||
@@ -41,35 +63,37 @@ function isPreviewMode(): boolean {
   );
 }
 
-function getAttr(map: Map<string, string | null>, key: string): string | null {
+export function getAttr(map: Map<string, string | null>, key: string): string | null {
   const v = map.get(key);
   return v === undefined ? null : v;
 }
 
-function toNum(value: string | null): number | null {
+export function toNum(value: string | null): number | null {
   if (!value) return null;
   const n = Number(value);
-  return Number.isNaN(n) ? null : n;
+  return Number.isFinite(n) ? n : null;
 }
 
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
-  if (isPreviewMode()) {
+  if (isPreviewMode() && slug === fixtureMansion.slug) {
     return fixtureMansion;
   }
 
   const sql = getSql();
-  if (!sql) return null;
+  if (!sql) {
+    throw new Error('DATABASE_URL is not configured; cannot serve public mansion pages');
+  }
 
-  const [mansion] = await sql`
-    SELECT id, public_id, project_id, public_status, review_status
+  const [mansion] = await sql<MansionRow[]>`
+    SELECT id, public_id
     FROM mansions
     WHERE slug = ${slug} AND public_status = 'published' AND review_status = 'approved'
   `;
 
   if (!mansion) return null;
 
-  const mansionAttrs = await sql`
-    SELECT attribute_name, attribute_value
+  const mansionAttrs = await sql<AttributeRow[]>`
+    SELECT entity_id, attribute_name, attribute_value
     FROM entity_attribute_sources
     WHERE entity_type = 'mansion'
       AND entity_id = ${mansion.id}
@@ -80,8 +104,8 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
 
   if (!canonicalName) return null;
 
-  const buildings = await sql`
-    SELECT id, public_id, canonical_name, building_label
+  const buildings = await sql<BuildingRow[]>`
+    SELECT id, canonical_name, building_label
     FROM buildings
     WHERE mansion_id = ${mansion.id}
       AND public_status = 'published'
@@ -93,7 +117,7 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
 
   if (buildings.length > 0) {
     const buildingIds = buildings.map((b) => b.id);
-    const buildingAttrs = await sql`
+    const buildingAttrs = await sql<AttributeRow[]>`
       SELECT entity_id, attribute_name, attribute_value
       FROM entity_attribute_sources
       WHERE entity_type = 'building'
@@ -101,25 +125,25 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
         AND publication_allowed = true
     `;
     for (const a of buildingAttrs) {
-      const map = buildingAttrMap.get(a.entity_id);
-      if (map) map.set(a.attribute_name, a.attribute_value);
+      buildingAttrMap.get(a.entity_id)?.set(a.attribute_name, a.attribute_value);
     }
   }
 
   const publicBuildings: PublicBuilding[] = [];
   for (const b of buildings) {
-    const attrs = buildingAttrMap.get(b.id);
-    if (!b.canonical_name && !b.building_label) continue;
+    const attrs = buildingAttrMap.get(b.id) ?? new Map<string, string | null>();
+    const name = b.canonical_name ?? b.building_label;
+    if (!name) continue;
     publicBuildings.push({
       id: b.id,
-      canonicalName: b.canonical_name,
+      canonicalName: name,
       buildingLabel: b.building_label,
-      floorsAbove: toNum(attrs ? getAttr(attrs, 'floors_above') : null),
-      floorsBelow: toNum(attrs ? getAttr(attrs, 'floors_below') : null),
-      totalUnits: toNum(attrs ? getAttr(attrs, 'total_units') : null),
-      structure: getAttr(attrs ?? new Map(), 'structure'),
-      builtYear: toNum(attrs ? getAttr(attrs, 'built_year') : null),
-      builtMonth: toNum(attrs ? getAttr(attrs, 'built_month') : null),
+      floorsAbove: toNum(getAttr(attrs, 'floors_above')),
+      floorsBelow: toNum(getAttr(attrs, 'floors_below')),
+      totalUnits: toNum(getAttr(attrs, 'total_units')),
+      structure: getAttr(attrs, 'structure'),
+      builtYear: toNum(getAttr(attrs, 'built_year')),
+      builtMonth: toNum(getAttr(attrs, 'built_month')),
     });
   }
 
@@ -135,11 +159,26 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
     builtMonth: toNum(getAttr(m, 'built_month')),
     totalUnits: toNum(getAttr(m, 'total_units')),
     developer: getAttr(m, 'developer'),
-    'constructor': getAttr(m, 'constructor'),
+    constructorName: getAttr(m, 'constructor'),
     managementCompany: getAttr(m, 'management_company'),
     structure: getAttr(m, 'structure'),
     mansionType: getAttr(m, 'mansion_type'),
     nearestStation: getAttr(m, 'nearest_station'),
     buildings: publicBuildings,
   };
+}
+
+export async function getPublishedMansionSlugs(): Promise<string[]> {
+  if (isPreviewMode()) return [fixtureMansion.slug];
+
+  const sql = getSql();
+  if (!sql) return [];
+
+  const rows = await sql<{ slug: string }[]>`
+    SELECT slug
+    FROM mansions
+    WHERE public_status = 'published' AND review_status = 'approved'
+    ORDER BY slug
+  `;
+  return rows.map((r) => r.slug);
 }
