@@ -1,0 +1,259 @@
+{
+  "source_name": "PR3 対象マンション 手動調査",
+  "acquisition_method": "manual_research",
+  "observed_at": "2025-08-14",
+  "records": [
+    {
+      "project": {
+        "canonical_name": "パークタワー勝どき",
+        "slug": "park-tower-kachidoki",
+        "ward": "中央区",
+        "address_summary": "東京都中央区勝どき"
+      },
+      "mansion": {
+        "canonical_name": "パークタワー勝どきミッド",
+        "slug": "park-tower-kachidoki-mid",
+        "ward": "中央区",
+        "town": "勝どき",
+        "address": "東京都中央区勝どき4丁目6番2号",
+        "built_year": 2023,
+        "built_month": 8,
+        "total_units": 1121,
+        "developer": "三井不動産レジデンシャル株式会社 / 清水建設株式会社",
+        "constructor": "清水建設株式会社",
+        "management_company": null,
+        "mansion_type": "tower",
+        "nearest_station": "都営大江戸線 勝どき駅 徒歩1分",
+        "structure": "鉄筋コンクリート造"
+      },
+      "buildings": [
+        {
+          "canonical_name": "パークタワー勝どきミッド",
+          "building_label": "MID",
+          "address": "東京都中央区勝どき4丁目6番2号",
+          "floors_above": 45,
+          "floors_below": 2,
+          "total_units": 1121,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2023,
+          "built_month": 8
+        }
+      ]
+    },
+    {
+      "project": {
+        "canonical_name": "二子玉川ライズ",
+        "slug": "futako-tamagawa-rise",
+        "ward": "世田谷区",
+        "address_summary": "東京都世田谷区玉川"
+      },
+      "mansion": {
+        "canonical_name": "二子玉川ライズ タワー＆レジデンス",
+        "slug": "futako-tamagawa-rise-tower-and-residence",
+        "ward": "世田谷区",
+        "town": "玉川",
+        "address": "東京都世田谷区玉川1丁目",
+        "built_year": 2010,
+        "built_month": 7,
+        "total_units": 1033,
+        "developer": "東急電鉄 / 東急不動産",
+        "constructor": "大成建設株式会社",
+        "management_company": "東急コミュニティー株式会社",
+        "mansion_type": "tower_and_residence",
+        "nearest_station": "東急田園都市線・大井町線 二子玉川駅 徒歩6分",
+        "structure": "鉄筋コンクリート造"
+      },
+      "buildings": [
+        {
+          "canonical_name": "二子玉川ライズ タワー＆レジデンス タワーセントラル",
+          "building_label": "タワーセントラル",
+          "address": "東京都世田谷区玉川1丁目",
+          "floors_above": 28,
+          "floors_below": 1,
+          "total_units": 292,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2010,
+          "built_month": 7
+        },
+        {
+          "canonical_name": "二子玉川ライズ タワー＆レジデンス タワーイースト",
+          "building_label": "タワーイースト",
+          "address": "東京都世田谷区玉川1丁目",
+          "floors_above": 42,
+          "floors_below": 1,
+          "total_units": 395,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2010,
+          "built_month": 7
+        },
+        {
+          "canonical_name": "二子玉川ライズ タワー＆レジデンス タワーウエスト",
+          "building_label": "タワーウエスト",
+          "address": "東京都世田谷区玉川1丁目",
+          "floors_above": 28,
+          "floors_below": 1,
+          "total_units": 283,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2010,
+          "built_month": 7
+        },
+        {
+          "canonical_name": "二子玉川ライズ タワー＆レジデンス レジデンスアクア",
+          "building_label": "レジデンスアクア",
+          "address": "東京都世田谷区玉川1丁目",
+          "floors_above": 6,
+          "floors_below": 1,
+          "total_units": 29,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2010,
+          "built_month": 7
+        },
+        {
+          "canonical_name": "二子玉川ライズ タワー＆レジデンス レジデンスフォレスト",
+          "building_label": "レジデンスフォレスト",
+          "address": "東京都世田谷区玉川1丁目",
+          "floors_above": 6,
+          "floors_below": 1,
+          "total_units": 34,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2010,
+          "built_month": 7
+        }
+      ]
+    },
+    {
+      "project": {
+        "canonical_name": "HARUMI FLAG",
+        "slug": "harumi-flag",
+        "ward": "中央区",
+        "address_summary": "東京都中央区晴海"
+      },
+      "mansion": {
+        "canonical_name": "HARUMI FLAG SUN VILLAGE",
+        "slug": "harumi-flag-sun-village",
+        "ward": "中央区",
+        "town": "晴海",
+        "address": "東京都中央区晴海5丁目",
+        "built_year": 2025,
+        "built_month": 9,
+        "total_units": 1822,
+        "developer": "三井不動産レジデンシャル等",
+        "constructor": null,
+        "management_company": null,
+        "mansion_type": "village",
+        "nearest_station": "都営大江戸線 勝どき駅 徒歩14分",
+        "structure": "鉄筋コンクリート造"
+      },
+      "buildings": [
+        {
+          "canonical_name": "HARUMI FLAG SUN VILLAGE T棟",
+          "building_label": "T棟",
+          "address": "東京都中央区晴海5丁目",
+          "floors_above": 50,
+          "floors_below": 1,
+          "total_units": null,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2025,
+          "built_month": 9
+        },
+        {
+          "canonical_name": "HARUMI FLAG SUN VILLAGE C棟",
+          "building_label": "C棟",
+          "address": "東京都中央区晴海5丁目",
+          "floors_above": null,
+          "floors_below": null,
+          "total_units": null,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2025,
+          "built_month": 9
+        },
+        {
+          "canonical_name": "HARUMI FLAG SUN VILLAGE E棟",
+          "building_label": "E棟",
+          "address": "東京都中央区晴海5丁目",
+          "floors_above": null,
+          "floors_below": null,
+          "total_units": null,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2025,
+          "built_month": 9
+        }
+      ]
+    },
+    {
+      "project": null,
+      "mansion": {
+        "canonical_name": "白金ザ・スカイ",
+        "slug": "shirokane-the-sky",
+        "ward": "港区",
+        "town": "白金",
+        "address": "東京都港区白金1丁目2番1〜2号",
+        "built_year": 2022,
+        "built_month": 12,
+        "total_units": 1247,
+        "developer": "東京建物 / 長谷工不動産 / 住友不動産 / 野村不動産 / 三井不動産レジデンシャル",
+        "constructor": "大林・長谷工建設共同企業体",
+        "management_company": "長谷工コミュニティ / 東京建物アメニティサポート",
+        "mansion_type": "tower",
+        "nearest_station": "東京メトロ南北線・都営三田線 白金高輪駅 徒歩3分",
+        "structure": "RC一部S造"
+      },
+      "buildings": [
+        {
+          "canonical_name": "白金ザ・スカイ 東棟",
+          "building_label": "東棟",
+          "address": "東京都港区白金1丁目2番1号",
+          "floors_above": 45,
+          "floors_below": 1,
+          "total_units": null,
+          "structure": "RC一部S造",
+          "built_year": 2022,
+          "built_month": 12
+        },
+        {
+          "canonical_name": "白金ザ・スカイ 西棟",
+          "building_label": "西棟",
+          "address": "東京都港区白金1丁目2番2号",
+          "floors_above": 45,
+          "floors_below": 1,
+          "total_units": null,
+          "structure": "RC一部S造",
+          "built_year": 2022,
+          "built_month": 12
+        }
+      ]
+    },
+    {
+      "project": null,
+      "mansion": {
+        "canonical_name": "ザ・パークハウス三軒茶屋タワー",
+        "slug": "the-parkhouse-sangenjaya-tower",
+        "ward": "世田谷区",
+        "town": "上馬",
+        "address": "東京都世田谷区上馬1丁目15-18",
+        "built_year": 2012,
+        "built_month": 2,
+        "total_units": 158,
+        "developer": "三菱地所レジデンス株式会社",
+        "constructor": "清水建設株式会社",
+        "management_company": "三菱地所コミュニティ",
+        "mansion_type": "tower",
+        "nearest_station": "東急田園都市線 三軒茶屋駅 徒歩9分",
+        "structure": "鉄筋コンクリート造"
+      },
+      "buildings": [
+        {
+          "canonical_name": "ザ・パークハウス三軒茶屋タワー",
+          "building_label": "タワー",
+          "address": "東京都世田谷区上馬1丁目15-18",
+          "floors_above": 30,
+          "floors_below": 1,
+          "total_units": 158,
+          "structure": "鉄筋コンクリート造",
+          "built_year": 2012,
+          "built_month": 2
+        }
+      ]
+    }
+  ]
+}
