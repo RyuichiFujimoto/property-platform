@@ -1,5 +1,13 @@
 import { getSql } from '@/lib/db';
+import { isPreviewMode } from '@/lib/env';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
+import {
+  attrNumber,
+  attrString,
+  groupAttributeMaps,
+  toAttributeMap,
+  type AttributeMap,
+} from '@/lib/public/attributes';
 
 export interface PublicBuilding {
   id: string;
@@ -33,25 +41,6 @@ export interface PublicMansion {
   buildings: PublicBuilding[];
 }
 
-function isPreviewMode(): boolean {
-  return (
-    process.env.ALLOW_PREVIEW_DATA === 'true' ||
-    process.env.VERCEL_ENV === 'preview' ||
-    process.env.NODE_ENV === 'development'
-  );
-}
-
-function getAttr(map: Map<string, string | null>, key: string): string | null {
-  const v = map.get(key);
-  return v === undefined ? null : v;
-}
-
-function toNum(value: string | null): number | null {
-  if (!value) return null;
-  const n = Number(value);
-  return Number.isNaN(n) ? null : n;
-}
-
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
   if (isPreviewMode()) {
     return fixtureMansion;
@@ -75,8 +64,8 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
       AND entity_id = ${mansion.id}
       AND publication_allowed = true
   `;
-  const m = new Map(mansionAttrs.map((a) => [a.attribute_name, a.attribute_value]));
-  const canonicalName = getAttr(m, 'canonical_name');
+  const m = toAttributeMap(mansionAttrs);
+  const canonicalName = attrString(m, 'canonical_name');
 
   if (!canonicalName) return null;
 
@@ -88,8 +77,7 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
       AND review_status = 'approved'
   `;
 
-  const buildingAttrMap = new Map<string, Map<string, string | null>>();
-  for (const b of buildings) buildingAttrMap.set(b.id, new Map());
+  let buildingAttrMap = new Map<string, AttributeMap>();
 
   if (buildings.length > 0) {
     const buildingIds = buildings.map((b) => b.id);
@@ -100,10 +88,7 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
         AND entity_id IN ${sql(buildingIds)}
         AND publication_allowed = true
     `;
-    for (const a of buildingAttrs) {
-      const map = buildingAttrMap.get(a.entity_id);
-      if (map) map.set(a.attribute_name, a.attribute_value);
-    }
+    buildingAttrMap = groupAttributeMaps(buildingAttrs);
   }
 
   const publicBuildings: PublicBuilding[] = [];
@@ -114,12 +99,12 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
       id: b.id,
       canonicalName: b.canonical_name,
       buildingLabel: b.building_label,
-      floorsAbove: toNum(attrs ? getAttr(attrs, 'floors_above') : null),
-      floorsBelow: toNum(attrs ? getAttr(attrs, 'floors_below') : null),
-      totalUnits: toNum(attrs ? getAttr(attrs, 'total_units') : null),
-      structure: getAttr(attrs ?? new Map(), 'structure'),
-      builtYear: toNum(attrs ? getAttr(attrs, 'built_year') : null),
-      builtMonth: toNum(attrs ? getAttr(attrs, 'built_month') : null),
+      floorsAbove: attrNumber(attrs, 'floors_above'),
+      floorsBelow: attrNumber(attrs, 'floors_below'),
+      totalUnits: attrNumber(attrs, 'total_units'),
+      structure: attrString(attrs, 'structure'),
+      builtYear: attrNumber(attrs, 'built_year'),
+      builtMonth: attrNumber(attrs, 'built_month'),
     });
   }
 
@@ -128,18 +113,18 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
     publicId: mansion.public_id,
     slug,
     canonicalName,
-    address: getAttr(m, 'address'),
-    ward: getAttr(m, 'ward'),
-    town: getAttr(m, 'town'),
-    builtYear: toNum(getAttr(m, 'built_year')),
-    builtMonth: toNum(getAttr(m, 'built_month')),
-    totalUnits: toNum(getAttr(m, 'total_units')),
-    developer: getAttr(m, 'developer'),
-    'constructor': getAttr(m, 'constructor'),
-    managementCompany: getAttr(m, 'management_company'),
-    structure: getAttr(m, 'structure'),
-    mansionType: getAttr(m, 'mansion_type'),
-    nearestStation: getAttr(m, 'nearest_station'),
+    address: attrString(m, 'address'),
+    ward: attrString(m, 'ward'),
+    town: attrString(m, 'town'),
+    builtYear: attrNumber(m, 'built_year'),
+    builtMonth: attrNumber(m, 'built_month'),
+    totalUnits: attrNumber(m, 'total_units'),
+    developer: attrString(m, 'developer'),
+    'constructor': attrString(m, 'constructor'),
+    managementCompany: attrString(m, 'management_company'),
+    structure: attrString(m, 'structure'),
+    mansionType: attrString(m, 'mansion_type'),
+    nearestStation: attrString(m, 'nearest_station'),
     buildings: publicBuildings,
   };
 }
