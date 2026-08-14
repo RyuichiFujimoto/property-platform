@@ -67,6 +67,17 @@ const buildingScoring = {
 - Mansion / Building 名：Unicode NFKC、全角半角、空白、ケース、句読点を正規化。original は保持。
 - 緯度経度：PostGIS で距離計算。
 
+## Building 数の整合性確認
+
+- PLATEAU 等の GIS データは、`Building` ではなく地物（ LOD1 等）をそのまま提供する場合がある。
+- 手動 Web 調査では棟数が不完全・省略されていることがある（例：HARUMI FLAG SUN VILLAGE は実際 7 棟だが調査結果では 3 棟のみ）。
+- そのため、以下を Canonical 化前に確認する。
+  1. `mansion_id` 配下の `source_observations` 建物数をカウント。
+  2. 公式・PLATEAU 等の信頼できる情報源から「想定棟数」を取得。
+  3. 不一致がある場合、`mansion.review_status = 'pending'` とし、Admin Match Review で追加棟の洗い出しを行う。
+  4. 不足・不明棟を補完するまでは `public_status = 'draft'` とする。
+- 決して PLATEAU 地物数をそのまま `Building` 数として採用しない。
+
 ## 審査フロー
 
 1. `source_observations` から Mansion / Building の観測を投入。
