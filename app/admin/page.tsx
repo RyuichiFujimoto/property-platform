@@ -14,13 +14,21 @@ function isAdminEmail(email: string | undefined): boolean {
   return allowlist.includes(email.toLowerCase());
 }
 
-export default async function AdminPage() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function getCurrentUserEmail(): Promise<string | undefined> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user?.email;
+  } catch {
+    // Supabase の環境変数が未設定なら認証できない = アクセスさせない
+    return undefined;
+  }
+}
 
-  if (!isAdminEmail(user?.email)) {
+export default async function AdminPage() {
+  if (!isAdminEmail(await getCurrentUserEmail())) {
     notFound();
   }
 
