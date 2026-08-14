@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { postgresSslOption } from './ssl.js';
 
 let sqlInstance: postgres.Sql<{}> | null = null;
 
@@ -31,7 +32,7 @@ export function getSql(): postgres.Sql<{}> | null {
 
   sqlInstance = postgres(connectionString, {
     max: 1,
-    ssl: { rejectUnauthorized: false },
+    ssl: postgresSslOption(connectionString),
   });
 
   return sqlInstance;

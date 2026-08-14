@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getPublicMansion } from '@/lib/public/mansion';
+import { serializeJsonLd } from '@/lib/seo/json-ld';
 
 interface Props {
   params: { slug: string };
@@ -72,7 +73,7 @@ export default async function MansionDetailPage({ params }: Props) {
     <main className="mx-auto max-w-3xl p-6">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
       />
 
       <section className="mb-8">
