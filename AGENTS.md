@@ -66,6 +66,19 @@
 - thin page は `noindex` とする。
 - faceted navigation を無制限に index させない。
 
+## マンションデータベース設計と SEO
+
+マンションデータベースの要件定義・スキーマ設計・公開 API/ページ設計には、保存している以下の SEO スキルを常に盛り込んで適用する。
+
+- `/seo-audit`: 全体の SEO 健全性と優先課題の確認
+- `/seo-technical-check`: クロール・インデックス・構造化データ等の技術点検
+- `/seo-content-plan`: 検索需要・コンテントギャップ・優先度の立案
+- `/seo-page-optimize`: 個別ページ/テンプレートの最適化
+- `/seo-ai-search-check`: 生成 AI/回答型検索への対応
+- `/seo-performance-review`: パフォーマンス分析と成果測定
+
+要件や設計を出す前に、該当する SEO スキルを呼び出し、指摘事項を反映させる。
+
 ## Cost & Approval
 
 - 料金が発生するタスクを実行する前は、必ずユーザーの承認を得る。
