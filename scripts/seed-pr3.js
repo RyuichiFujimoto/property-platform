@@ -39,7 +39,38 @@ const newMansionId = () => `MAN_${ulid()}`;
 const newBuildingId = () => `BLD_${ulid()}`;
 
 const dataFile = resolve(process.cwd(), 'data', 'pr3-mansions.json');
-const rawPayload = JSON.parse(readFileSync(dataFile, 'utf8'));
+
+function loadPayload() {
+  let fileContent;
+  try {
+    fileContent = readFileSync(dataFile, 'utf8');
+  } catch (err) {
+    throw new Error(`Failed to read seed data file: ${dataFile}`, { cause: err });
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(fileContent);
+  } catch (err) {
+    throw new Error(`Seed data file is not valid JSON: ${dataFile}`, { cause: err });
+  }
+
+  if (!Array.isArray(payload.records)) {
+    throw new Error(`Seed data file must contain a "records" array: ${dataFile}`);
+  }
+  payload.records.forEach((record, index) => {
+    if (!record.mansion) {
+      throw new Error(`records[${index}] is missing "mansion": ${dataFile}`);
+    }
+    if (!Array.isArray(record.buildings)) {
+      throw new Error(`records[${index}] is missing a "buildings" array: ${dataFile}`);
+    }
+  });
+
+  return payload;
+}
+
+const rawPayload = loadPayload();
 const rawString = JSON.stringify(rawPayload);
 
 function attributeSources(entityType, entityId, values, sourceId, observationId) {
@@ -192,10 +223,24 @@ async function run() {
   });
 
   console.log('PR3 seed completed');
-  await sql.end();
 }
 
-run().catch((err) => {
-  console.error('PR3 seed failed:', err);
+try {
+  await run();
+} catch (err) {
+  console.error('PR3 seed failed');
+  console.error(err);
   process.exitCode = 1;
-});
+} finally {
+  // 失敗時も接続を閉じる。閉じ忘れるとプロセスが終了せず、CI が exit code を受け取れない。
+  try {
+    await sql.end();
+  } catch (endErr) {
+    console.error('Failed to close database connection');
+    console.error(endErr);
+  }
+}
+
+if (process.exitCode) {
+  process.exit(process.exitCode);
+}

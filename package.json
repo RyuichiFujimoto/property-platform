@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed-pr3.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
