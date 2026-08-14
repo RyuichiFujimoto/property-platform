@@ -89,6 +89,7 @@ pnpm build
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript 型チェック |
 | `pnpm test` | テスト実行 |
+| `pnpm test:coverage` | テスト実行 + カバレッジ計測（`lib/` 配下） |
 | `pnpm db:migrate` | データベースマイグレーション |
 | `pnpm db:seed` | seed データ投入 |
 
