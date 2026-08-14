@@ -33,7 +33,12 @@ export interface PublicMansion {
   buildings: PublicBuilding[];
 }
 
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,127}$/;
+
 function isPreviewMode(): boolean {
+  // 本番環境では fixture（未検証データ）を絶対に返さない。
+  if (process.env.VERCEL_ENV === 'production') return false;
+
   return (
     process.env.ALLOW_PREVIEW_DATA === 'true' ||
     process.env.VERCEL_ENV === 'preview' ||
@@ -53,6 +58,8 @@ function toNum(value: string | null): number | null {
 }
 
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
+  if (!SLUG_PATTERN.test(slug)) return null;
+
   if (isPreviewMode()) {
     return fixtureMansion;
   }
