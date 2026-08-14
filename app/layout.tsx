@@ -1,3 +1,5 @@
+import './globals.css';
+
 export const metadata = {
   title: '不動産SEOポータル MVP',
 };
