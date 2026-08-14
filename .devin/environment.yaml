@@ -1,0 +1,41 @@
+initialize:
+  - run: |
+      # Node.js LTS (via nvm if present, otherwise leave to base image)
+      export NVM_DIR="$HOME/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm install --lts && nvm use --lts
+      # pnpm
+      npm install -g pnpm
+      # Supabase CLI
+      npm install -g supabase
+      # PostgreSQL client
+      apt-get update && apt-get install -y postgresql-client postgis gdal-bin || true
+  - run: |
+      # 依存関係インストール
+      pnpm install --frozen-lockfile
+
+maintenance:
+  - run: |
+      pnpm install --frozen-lockfile
+
+knowledge:
+  - name: lint
+    contents: |
+      pnpm lint
+  - name: typecheck
+    contents: |
+      pnpm typecheck
+  - name: test
+    contents: |
+      pnpm test
+  - name: build
+    contents: |
+      pnpm build
+  - name: dev server
+    contents: |
+      pnpm dev
+  - name: migration
+    contents: |
+      pnpm db:migrate
+  - name: seed
+    contents: |
+      pnpm db:seed
