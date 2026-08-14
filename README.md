@@ -1,6 +1,11 @@
 # property-platform
 
-日本国内のマンション・建物データベースを中心とした、不動産 SEO ポータル／建物マスター構築プロジェクトです。
+マイマンション（My Mansion）は、マンションオーナーが自宅の資産価値を継続的に追跡するサービスです。
+
+- パブリックなマンションページからオーナー登録へ導く主 CTA:
+  「マイマンションに登録して、今の価格を確認」
+- 査定依頼は後段のコンバージョンです。UI では「今すぐ売る」「即査定」を過度に強調しません。
+- MVP では東京都 23 区（Setagaya を含む）の 50 マンションを対象とします。
 
 ## 技術スタック
 
@@ -8,10 +13,11 @@
 - TypeScript strict mode
 - Node.js LTS
 - pnpm
-- PostgreSQL + PostGIS (初期：Supabase PostgreSQL)
+- PostgreSQL + PostGIS（初期：Supabase PostgreSQL）
 - Vercel
 - Sentry
 - GitHub Actions
+- Supabase Auth
 
 ## セットアップ
 
@@ -22,13 +28,7 @@ git clone <repository-url>
 cd property-platform
 ```
 
-### 2. 依存関係インストール
-
-```bash
-pnpm install --frozen-lockfile
-```
-
-### 3. 環境変数
+### 2. 環境変数
 
 `.env.example` をコピーして `.env.local` を作成します。
 
@@ -38,7 +38,7 @@ cp .env.example .env.local
 
 実際の値を入力してください。
 
-### 4. データベースセットアップ
+### 3. データベースセットアップ
 
 Supabase またはローカル PostgreSQL/PostGIS を用意します。
 
@@ -48,25 +48,25 @@ supabase start
 supabase db reset
 ```
 
-### 5. マイグレーション実行
+### 4. マイグレーション実行
 
 ```bash
 pnpm db:migrate
 ```
 
-### 6. seed
+### 5. seed
 
 ```bash
 pnpm db:seed
 ```
 
-### 7. 開発サーバー
+### 6. 開発サーバー
 
 ```bash
 pnpm dev
 ```
 
-### 8. テスト
+### 7. テスト
 
 ```bash
 pnpm lint
@@ -74,32 +74,11 @@ pnpm typecheck
 pnpm test
 ```
 
-### 9. 本番ビルド
+### 8. 本番ビルド
 
 ```bash
 pnpm build
 ```
-
-## GitHub Ruleset 手動設定手順
-
-`gh` CLI の権限がない場合は、GitHub UI から以下を設定してください。
-
-1. Settings → Rules → Rulesets → New ruleset → New branch ruleset
-2. Target branches: `main`
-3. 以下を有効化
-   - Restrict deletions
-   - Require a pull request before merging
-     - Require approval of the most recent reviewable push
-     - Dismiss stale PR approvals when new commits are pushed
-   - Restrict pushes that create files that contain secrets
-   - Block force pushes
-   - Require status checks to pass before merging
-     - `ci`
-     - `lint`
-     - `typecheck`
-     - `test`
-     - `build`
-4. Save changes
 
 ## コマンド一覧
 
@@ -115,9 +94,10 @@ pnpm build
 
 ## ドキュメント
 
-- `docs/architecture.md` — システム全体図
+- `docs/architecture.md` — システム全体図と 4 層エンティティモデル
 - `docs/data-model.md` — DB schema
 - `docs/data-sources.md` — 使用データソース一覧
 - `docs/data-rights.md` — データ利用規約管理
-- `docs/matching.md` — 名寄せ仕様
-- `docs/seo.md` — index/noindex policy
+- `docs/matching.md` — Mansion / Building 名寄せ仕様
+- `docs/seo.md` — index/noindex policy と CTA 文言
+- `docs/PR-plan.md` — PR 分割計画

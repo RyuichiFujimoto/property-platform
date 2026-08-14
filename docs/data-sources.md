@@ -1,5 +1,9 @@
 # Data Sources
 
+## MVP scope
+
+MVP targets 50 real mansions in Tokyo 23 wards, including Setagaya. Open data is used first. Portal scraping remains fixtures-only until legal and contractual approval is obtained.
+
 ## 採用予定のオープンデータ
 
 ### A. PLATEAU
@@ -8,7 +12,7 @@
 - **acquisition_method**: `download`
 - **base_url**: https://www.mlit.go.jp/plateau/
 - **利用目的**: 建物 geometry、位置、住所、建物属性、名称（あれば）
-- **初期 MBP エリア**: 東京都中央区（東京23区の一部）
+- **初期 MVP エリア**: 東京都 23 区（Setagaya を中心に開始）
 - **terms_status**: approved
 - **publication_status**: allowed
 - **commercial_use_status**: allowed

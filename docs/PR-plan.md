@@ -1,6 +1,6 @@
 # PR 分割計画
 
-## PR 1 — Repository Bootstrap
+## PR 1 — Repository Bootstrap (already done)
 
 - Next.js + TypeScript + pnpm プロジェクト作成
 - ESLint / Prettier / Tailwind CSS 設定
@@ -9,63 +9,63 @@
 - AGENTS.md / README.md / .env.example
 - `.devin/environment.yaml`
 
-## PR 2 — Database Foundation
+## PR 2 — Canonical Data Model
 
-- PostgreSQL + PostGIS 接続
-- migrations
-- `data_sources`
-- `raw_source_records`
-- `building_observations`
-- `buildings`
-- `building_source_links`
-- `building_attribute_sources`
-- `building_aliases`
-- `building_match_candidates`
+- projects / mansions / buildings / units テーブル
+- data_sources
+- raw_source_records / source_observations
+- provenance (`entity_attribute_sources`)
+- マイグレーション
+- ULID ID 体系 (`PRJ_`, `MAN_`, `BLD_`, `UNT_`)
 
-## PR 3 — Open Data Source Framework
+## PR 3 — Minimal Real Data Pipeline
 
-- 共通 `SourceAdapter` インターフェース
-- PLATEAU adapter skeleton
-- Address Registry adapter skeleton
-- fixtures
-- tests
+- 3-5 real mansions, including at least one multi-building
+- end-to-end: source → raw → observation → canonical
+- PLATEAU / Address Base / open data integration
 
-## PR 4 — Address / Name Normalization
-
-- 建物名正規化
-- 住所正規化
-- tests
-
-## PR 5 — Matching Engine
-
-- candidate 生成
-- スコア計算
-- `AUTO_MATCH` / `REVIEW` / `NO_MATCH`
-- audit trail
-
-## PR 6 — PLATEAU Initial Import
-
-- 東京23区のうち 1 区（中央区など）を対象
-- 小規模データで pipeline 完成
-
-## PR 7 — Admin Match Review
-
-- 管理画面
-- Match Review UI
-
-## PR 8 — Public Building Page
+## PR 4 — Public Mansion SEO Vertical Slice
 
 - `/mansion/[slug]`
+- mansion data, market section, CTA
+- responsive design
+- noindex / publication_allowed guard
 
-## PR 9 — SEO Foundation
+## PR 5 — Owner Authentication & Registration
 
-- sitemap
-- robots
-- canonical
-- redirects
-- noindex policy
+- Supabase Auth
+- select Mansion / Building
+- enter unit info (room, floor, area, layout, direction)
+- owner_properties 作成
 
-## PR 10 — Portal Observation Framework
+## PR 6 — My Mansion
 
-- 規約承認済み source のみ有効化
-- fixtures / adapter architecture
+- `/mypage`
+- estimated price, price range, price per tsubo
+- month-over-month, mansion price trend, recent listings
+
+## PR 7 — Appraisal Request & Admin
+
+- appraisal request form
+- admin: owner leads, appraisal requests
+- status workflow (new / contacted / appointment / closed)
+
+## PR 8 — MVP 50 Mansion Data Import
+
+- 50 real mansions in Tokyo 23 wards, including Setagaya
+- import pipeline and review
+
+## PR 9 — SEO / Analytics / Setagaya Area Page
+
+- sitemap / robots / canonical
+- Setagaya area page
+- analytics / event tracking
+
+## PR 10+ — Post-MVP
+
+- advanced matching
+- 23-wide import
+- portal scraping (after legal approval)
+- property graph
+- advanced market data
+- R2 storage integration
