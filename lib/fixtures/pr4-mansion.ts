@@ -12,7 +12,7 @@ export const fixtureMansion: PublicMansion = {
   builtMonth: 6,
   totalUnits: 120,
   developer: 'Fixture 不動産',
-  constructor: 'Fixture 建設',
+  constructorName: 'Fixture 建設',
   managementCompany: 'Fixture 管理',
   structure: '鉄筋コンクリート造',
   mansionType: 'tower',
