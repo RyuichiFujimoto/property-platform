@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { normalizeConnectionString, sslConfigFor } from '../lib/db/connection.mjs';
 
 dotenv.config({ path: '.env.local' });
 
@@ -13,34 +14,48 @@ if (!DATABASE_URL) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationFile = path.join(__dirname, '..', 'supabase', 'migrations', '001_initial.sql');
-const migration = fs.readFileSync(migrationFile, 'utf8');
+const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
 
-// Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
-let connectionString = DATABASE_URL;
-if (connectionString.startsWith('postgresql://')) {
-  const rest = connectionString.slice('postgresql://'.length);
-  const atIndex = rest.lastIndexOf('@');
-  if (atIndex > 0) {
-    const userInfo = rest.slice(0, atIndex);
-    const hostPart = rest.slice(atIndex + 1);
-    const colonIndex = userInfo.indexOf(':');
-    if (colonIndex > 0) {
-      const user = userInfo.slice(0, colonIndex);
-      const password = userInfo.slice(colonIndex + 1);
-      connectionString = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${hostPart}`;
-    }
-  }
-}
+const migrationFiles = fs
+  .readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
-const sql = postgres(connectionString, {
+const sql = postgres(normalizeConnectionString(DATABASE_URL), {
   max: 1,
-  ssl: { rejectUnauthorized: false },
+  ssl: sslConfigFor(DATABASE_URL),
 });
 
 try {
-  await sql.unsafe(migration);
-  console.log('Migration applied successfully');
+  await sql`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+
+  const applied = new Set(
+    (await sql`SELECT version FROM schema_migrations`).map((row) => row.version)
+  );
+
+  let appliedCount = 0;
+  for (const file of migrationFiles) {
+    if (applied.has(file)) {
+      console.log(`skip ${file} (already applied)`);
+      continue;
+    }
+
+    const statements = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    // 1 migration = 1 transaction。途中で失敗しても部分適用にならない
+    await sql.begin(async (tx) => {
+      await tx.unsafe(statements);
+      await tx`INSERT INTO schema_migrations (version) VALUES (${file})`;
+    });
+    appliedCount += 1;
+    console.log(`applied ${file}`);
+  }
+
+  console.log(`Migration completed (${appliedCount} applied, ${migrationFiles.length} total)`);
 } catch (err) {
   console.error('Migration failed:', err.message);
   process.exitCode = 1;
