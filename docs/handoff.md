@@ -42,6 +42,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 - PR4: Public Mansion SEO Page（UI / ルーティング / SEO / データ取得ロジック）
 - CI 修正：`lib/db/index.ts` を lazy 化し、`.env.local` が無くてもビルドが通る
 - Supabase Auth 用ライブラリ追加 + `lib/auth/supabase.ts` 作成
+- PR5: オーナー認証（メール + パスワード）とマイマンション登録の実装（`/register`、`lib/owner/*`、`002_auth_and_owner.sql`）
 
 ### 正常に動作しているもの
 
@@ -54,7 +55,6 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 
 ### 未完成・未検証のもの
 
-- PR5: オーナー登録フロー本体（UI / server action / DB 保存）
 - PR6: My Mansion（推定価格 / 相場）
 - PR7: 査定依頼 & Admin
 - PR8: MVP 50 Mansion Data Import
@@ -65,7 +65,9 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 - PR5「Owner Authentication & マイマンション登録」
   - `@supabase/ssr`、`@supabase/supabase-js` インストール済み
   - `lib/auth/supabase.ts` に 3 種類のクライアント作成済み
-  - `/register` ページ、server action、`owner_properties` 保存などは未実装
+  - `/register` ページ、server action、`owner_properties` 保存を実装済み（`lib/owner/actions.ts` / `lib/owner/queries.ts` / `lib/owner/validation.ts`）
+  - 未実施：Supabase 認証情報と DB 接続がある環境での通し確認（実ユーザー作成 → `owner_properties` 保存）
+  - ローカル / CI には Supabase の認証情報が無いため、`/register` は「登録機能は準備中」表示にフォールバックする
 
 ---
 
@@ -197,7 +199,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 - `buildings`
 - `units`
 - `users`（Supabase Auth と連携予定）
-- `owner_properties`（未作成 / 次セッション）
+- `owner_properties` / `appraisal_requests`（`002_auth_and_owner.sql` で `auth.users` への FK、重複登録防止の unique index、RLS を追加済み）
 
 ### 登録済みデータ
 
@@ -261,8 +263,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 
 ### 未実施
 
-- 自動テスト（PR5 以降の機能）
-- E2E（Auth フロー）
+- E2E（Auth フロー：実 Supabase プロジェクトでのサインアップ / ログイン）
 - Supabase Auth 実際のユーザー作成・ログイン
 - 本番 Public ページ表示（`publication_allowed=true` データ無しのため）
 
@@ -287,24 +288,19 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 
 ## 11. Next Actions（優先順位）
 
-1. **PR5: オーナー登録フロー実装**
-   - 対象: `app/register/page.tsx`, `lib/owner/actions.ts`, `lib/owner/queries.ts`
-   - 完了条件: Mansion / Building / Unit を選択し、Supabase Auth でユーザーを作成、DB `owner_properties` へ保存
+1. **Supabase 環境での PR5 通し確認**
+   - 対象: Supabase Dashboard（Auth のメール確認設定 / Redirect URL）、`pnpm db:migrate`
+   - 完了条件: 実ユーザーでサインアップ → `/register` で登録 → `owner_properties` に行が作成される
 
-2. **DB schema 拡張**
-   - 対象: `supabase/migrations/002_auth_and_owner.sql`
-   - 完了条件: `users` / `owner_properties` テーブルまたは Supabase Auth との外部キー連携が定義される
+2. **PR6: My Mansion ダッシュボード**
+   - 対象: `/mypage`、`lib/owner/queries.ts`（`listOwnerProperties` を活用）
+   - 完了条件: 登録済みの部屋と参考価格 / 相場を表示（架空の市場データは表示しない）
 
-3. **`/mansion/[slug]` ページから `/register` への CTA 連携**
-   - 対象: `app/(public)/mansion/[slug]/page.tsx`
-   - 完了条件: CTA リンクに `?mansion=<slug>` を付与し、register ページで引き継ぎ
+3. **`units` と `owner_properties` の紐付け**
+   - 現状は部屋番号を自由入力で保存し、`unit_id` は未使用
 
 4. **CI 再確認**
    - 完了条件: 新規 commit 後、GitHub Actions `ci` が成功
-
-5. **Supabase Auth 設定確認**
-   - 対象: Supabase Dashboard
-   - 完了条件: 確認事項レポート、必要に応じて `lib/auth/supabase.ts` 修正
 
 ---
 
