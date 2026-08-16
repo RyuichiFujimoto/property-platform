@@ -13,8 +13,12 @@ if (!DATABASE_URL) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationFile = path.join(__dirname, '..', 'supabase', 'migrations', '001_initial.sql');
-const migration = fs.readFileSync(migrationFile, 'utf8');
+const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
+// ファイル名の昇順に全マイグレーションを適用する（各ファイルは冪等に書く前提）
+const migrationFiles = fs
+  .readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
 // Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
 let connectionString = DATABASE_URL;
@@ -39,8 +43,12 @@ const sql = postgres(connectionString, {
 });
 
 try {
-  await sql.unsafe(migration);
-  console.log('Migration applied successfully');
+  for (const file of migrationFiles) {
+    const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    await sql.unsafe(migration);
+    console.log(`Applied ${file}`);
+  }
+  console.log('Migrations applied successfully');
 } catch (err) {
   console.error('Migration failed:', err.message);
   process.exitCode = 1;

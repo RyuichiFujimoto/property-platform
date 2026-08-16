@@ -54,6 +54,8 @@ supabase db reset
 pnpm db:migrate
 ```
 
+`supabase/migrations/*.sql` をファイル名の昇順にすべて適用します（各ファイルは再実行しても安全な冪等 SQL）。
+
 ### 5. seed
 
 ```bash
@@ -90,8 +92,16 @@ pnpm build
 | `pnpm typecheck` | TypeScript 型チェック |
 | `pnpm test` | テスト実行 |
 | `pnpm test:coverage` | テスト実行 + カバレッジ計測（`lib/` 配下） |
-| `pnpm db:migrate` | データベースマイグレーション |
+| `pnpm db:migrate` | データベースマイグレーション（全 migration を順に適用） |
 | `pnpm db:seed` | seed データ投入 |
+
+## オーナー登録（マイマンション）
+
+- `/mansion/<slug>` の CTA から `/register?mansion=<slug>` へ遷移します。
+- `/register` では Supabase Auth（メールアドレス + パスワード）でログイン / 新規登録し、棟・部屋番号・階数・専有面積・間取り・方角を入力して `owner_properties` に保存します。
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` が未設定の環境では、エラーにせず「登録機能は準備中」の表示になります。
+- メール確認が有効な Supabase プロジェクトでは、確認メールのリンクが `/auth/callback` を経由して `/register` に戻ります。
+- `owner_properties` / `appraisal_requests` は RLS により本人のみ参照・更新できます（`supabase/migrations/002_auth_and_owner.sql`）。
 
 ## ドキュメント
 
