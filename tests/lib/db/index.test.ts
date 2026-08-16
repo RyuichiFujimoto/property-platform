@@ -25,11 +25,11 @@ describe('getSql', () => {
     else process.env.DATABASE_URL = savedUrl;
   });
 
-  test('DATABASE_URL が無い場合は null を返す', async () => {
+  test('DATABASE_URL が無い場合は ConfigurationError を投げる', async () => {
     delete process.env.DATABASE_URL;
     const getSql = await importGetSql();
 
-    expect(getSql()).toBeNull();
+    expect(() => getSql()).toThrow(/DATABASE_URL is not set/);
     expect(dotenvConfig).toHaveBeenCalledWith({ path: '.env.local' });
     expect(postgresMock).not.toHaveBeenCalled();
   });
@@ -42,6 +42,7 @@ describe('getSql', () => {
     expect(postgresMock).toHaveBeenCalledWith('postgresql://user:pass@db.example.com:5432/postgres', {
       max: 1,
       ssl: { rejectUnauthorized: false },
+      onnotice: expect.any(Function),
     });
   });
 

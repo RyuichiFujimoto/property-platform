@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed-pr3.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

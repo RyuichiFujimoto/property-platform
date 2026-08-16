@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { ConfigurationError } from '@/lib/errors';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
 
 const getSql = vi.hoisted(() => vi.fn());
@@ -72,11 +73,14 @@ describe('getPublicMansion', () => {
     await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
   });
 
-  test('DB 接続が無い場合は null を返す', async () => {
-    getSql.mockReturnValue(null);
+  // 設定ミスを「データが無い」と見せると 404 / noindex として埋もれるので、必ず失敗させる。
+  test('DB 設定が無い場合は例外を伝播させる', async () => {
+    getSql.mockImplementation(() => {
+      throw new ConfigurationError('DATABASE_URL is not set.');
+    });
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('fixture-mansion')).resolves.toBeNull();
+    await expect(getPublicMansion('fixture-mansion')).rejects.toThrow(/DATABASE_URL is not set/);
   });
 
   test('公開中の mansion が存在しない場合は null を返す', async () => {
