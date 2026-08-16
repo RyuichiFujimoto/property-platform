@@ -30,4 +30,5 @@ export const fixtureMansion: PublicMansion = {
       builtMonth: 6,
     },
   ],
+  isPreview: true,
 };
