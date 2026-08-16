@@ -27,7 +27,7 @@ export function getSupabaseServiceRoleKey(): string {
  */
 export function isReadOnlyCookieError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  return /can only be modified in a Server Action or Route Handler|read-only/i.test(error.message);
+  return /can only be modified in a Server Action|read-only/i.test(error.message);
 }
 
 export async function createServerSupabaseClient() {
