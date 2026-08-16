@@ -33,8 +33,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: `/mansion/${data.slug}`,
     },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    // プレビューの fixture は架空データなので index させない。
     robots: {
-      index: true,
+      index: !data.isPreview,
       follow: true,
     },
   };

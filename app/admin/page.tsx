@@ -1,3 +1,11 @@
+import type { Metadata } from 'next';
+
+// 管理画面は robots.txt でも disallow しているが、二重防御で noindex も明示する。
+export const metadata: Metadata = {
+  title: '管理画面',
+  robots: { index: false, follow: false },
+};
+
 export default function AdminPage() {
   return (
     <main className="p-6">

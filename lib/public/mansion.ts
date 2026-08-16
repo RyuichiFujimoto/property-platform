@@ -32,14 +32,30 @@ export interface PublicMansion {
   mansionType: string | null;
   nearestStation: string | null;
   buildings: PublicBuilding[];
+  /** 架空のプレビュー用データかどうか。true のページは index させない。 */
+  isPreview: boolean;
+}
+
+export interface PublicMansionIndexEntry {
+  slug: string;
+  updatedAt: Date | null;
 }
 
 function isPreviewMode(): boolean {
-  return (
-    process.env.ALLOW_PREVIEW_DATA === 'true' ||
-    process.env.VERCEL_ENV === 'preview' ||
-    process.env.NODE_ENV === 'development'
-  );
+  if (process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview') {
+    return true;
+  }
+
+  if (process.env.ALLOW_PREVIEW_DATA !== 'true') return false;
+
+  if (process.env.NODE_ENV === 'production') {
+    logWarn(
+      'public/mansion',
+      'ALLOW_PREVIEW_DATA is enabled in a production build, serving fixture data as noindex'
+    );
+  }
+
+  return true;
 }
 
 function getAttr(map: Map<string, string | null>, key: string): string | null {
@@ -61,6 +77,38 @@ function toNum(
     return null;
   }
   return n;
+}
+
+/**
+ * sitemap に載せる公開マンション。
+ * 公開許可された名称が無いものは公開ページ側で 404 になるため、ここでも除外する。
+ */
+export async function getPublicMansionIndexEntries(): Promise<PublicMansionIndexEntry[]> {
+  // プレビュー環境の fixture は架空データなので sitemap に載せない。
+  if (isPreviewMode()) return [];
+
+  const sql = getSql();
+
+  const rows = await sql`
+    SELECT m.slug, m.updated_at
+    FROM mansions m
+    WHERE m.public_status = 'published'
+      AND m.review_status = 'approved'
+      AND EXISTS (
+        SELECT 1
+        FROM entity_attribute_sources e
+        WHERE e.entity_type = 'mansion'
+          AND e.entity_id = m.id
+          AND e.attribute_name = 'canonical_name'
+          AND e.publication_allowed = true
+      )
+    ORDER BY m.slug
+  `;
+
+  return rows.map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updated_at ?? null,
+  }));
 }
 
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
@@ -188,5 +236,6 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
     mansionType: getAttr(m, 'mansion_type'),
     nearestStation: getAttr(m, 'nearest_station'),
     buildings: publicBuildings,
+    isPreview: false,
   };
 }
