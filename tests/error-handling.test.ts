@@ -54,7 +54,7 @@ describe('getPublicMansion', () => {
   test('returns fixture data in preview mode', async () => {
     process.env.ALLOW_PREVIEW_DATA = 'true';
     const { getPublicMansion } = await import('@/lib/public/mansion');
-    const data = await getPublicMansion('any-slug');
+    const data = await getPublicMansion('fixture-mansion');
     expect(data?.slug).toBe('fixture-mansion');
   });
 });

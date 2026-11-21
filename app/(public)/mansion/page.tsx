@@ -1,3 +1,11 @@
+import type { Metadata } from 'next';
+
+// 中身がプレースホルダーのうちは thin page なので index させない。
+export const metadata: Metadata = {
+  title: 'マンション一覧',
+  robots: { index: false, follow: true },
+};
+
 export default function MansionsPage() {
   return (
     <main className="p-6">
