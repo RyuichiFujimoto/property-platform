@@ -4,11 +4,12 @@ import { getPublicMansion } from '@/lib/public/mansion';
 import { serializeJsonLd } from '@/lib/seo/json-ld';
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     return {
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function MansionDetailPage({ params }: Props) {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     notFound();

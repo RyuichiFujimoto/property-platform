@@ -1,9 +1,10 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import React from 'react';
 import { getPublicMansion } from '@/lib/public/mansion';
 
 interface Props {
-  searchParams: { mansion?: string };
+  searchParams: Promise<{ mansion?: string | string[] }>;
 }
 
 export const metadata: Metadata = {
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RegisterPage({ searchParams }: Props) {
-  const slug = searchParams.mansion;
-  const mansion = slug ? await getPublicMansion(slug) : null;
+  const { mansion: slug } = await searchParams;
+  const mansion = typeof slug === 'string' && slug ? await getPublicMansion(slug) : null;
 
   return (
     <main className="mx-auto max-w-2xl p-6">
