@@ -4,19 +4,29 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/auth/env';
+import { ConfigurationError, logWarn } from '@/lib/errors';
 
-function getSupabaseServiceRoleKey(): string {
+export function getSupabaseServiceRoleKey(): string {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+  if (!key) throw new ConfigurationError('SUPABASE_SERVICE_ROLE_KEY is not set');
   return key;
+}
+
+/**
+ * Next.js は Server Component のレンダリング中の cookie 書き込みを拒否する。
+ * そのケースだけを安全に無視するための判定。
+ */
+export function isReadOnlyCookieError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /can only be modified in a Server Action|read-only/i.test(error.message);
 }
 
 /**
  * Server Component / Server Action / Route Handler 用のクライアント。
  * session は cookie 経由で読み書きする。
  */
-export function createServerSupabaseClient() {
-  const cookieStore = cookies();
+export async function createServerSupabaseClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
@@ -28,9 +38,11 @@ export function createServerSupabaseClient() {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
           }
-        } catch {
-          // Server Component の render 中は cookie を書き込めない。
-          // token refresh は middleware 側で行うため、ここでは無視して良い。
+        } catch (error) {
+          // Server Component のレンダリング中は cookie が read-only なので、この場合のみ無視する。
+          // それ以外のエラーを握り潰すと、セッション更新の失敗に気付けなくなる。
+          if (!isReadOnlyCookieError(error)) throw error;
+          logWarn('auth/supabase', 'cookies are read-only in this context, skipping session write');
         }
       },
     },
