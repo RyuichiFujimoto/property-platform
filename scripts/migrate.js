@@ -15,10 +15,6 @@ if (!DATABASE_URL) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
-const migrationFiles = fs
-  .readdirSync(migrationsDir)
-  .filter((f) => f.endsWith('.sql'))
-  .sort();
 
 // Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
 let connectionString = DATABASE_URL;
@@ -43,15 +39,33 @@ const sql = postgres(connectionString, {
 });
 
 try {
+  const migrationFiles = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  // 途中で失敗した場合に DB が中途半端な状態で残らないよう、1 トランザクションで適用する。
+  await sql.begin(async (tx) => {
+    for (const file of migrationFiles) {
+      const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await tx.unsafe(migration);
+    }
+  });
   for (const file of migrationFiles) {
-    const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    await sql.unsafe(migration);
     console.log(`Applied ${file}`);
   }
   console.log('Migrations applied successfully');
 } catch (err) {
-  console.error('Migration failed:', err.message);
+  console.error('Migration failed');
+  console.error(err);
   process.exitCode = 1;
 } finally {
-  await sql.end();
+  try {
+    await sql.end();
+  } catch (endErr) {
+    // 接続クローズの失敗で本来のエラーを隠さない。
+    console.error('Failed to close database connection');
+    console.error(endErr);
+    process.exitCode = 1;
+  }
 }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { ConfigurationError } from '@/lib/errors';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
 
 const getSql = vi.hoisted(() => vi.fn());
@@ -68,7 +69,8 @@ describe('getPublicMansion', () => {
   test('VERCEL_ENV=production では ALLOW_PREVIEW_DATA が有効でも fixture を返さない', async () => {
     process.env.VERCEL_ENV = 'production';
     process.env.ALLOW_PREVIEW_DATA = 'true';
-    getSql.mockReturnValue(null);
+    const { sql } = createSqlMock([[]]);
+    getSql.mockReturnValue(sql);
     const { getPublicMansion } = await importModule();
 
     await expect(getPublicMansion(fixtureMansion.slug)).resolves.toBeNull();
@@ -82,11 +84,14 @@ describe('getPublicMansion', () => {
     await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
   });
 
-  test('DB 接続が無い場合は null を返す', async () => {
-    getSql.mockReturnValue(null);
+  // 設定ミスを「データが無い」と見せると 404 / noindex として埋もれるので、必ず失敗させる。
+  test('DB 設定が無い場合は例外を伝播させる', async () => {
+    getSql.mockImplementation(() => {
+      throw new ConfigurationError('DATABASE_URL is not set.');
+    });
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('fixture-mansion')).resolves.toBeNull();
+    await expect(getPublicMansion('fixture-mansion')).rejects.toThrow(/DATABASE_URL is not set/);
   });
 
   test('公開中の mansion が存在しない場合は null を返す', async () => {
