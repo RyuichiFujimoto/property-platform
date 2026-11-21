@@ -32,6 +32,7 @@
     "postgres": "^3.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "server-only": "0.0.1",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.3.3",
     "ulid": "^3.0.2"

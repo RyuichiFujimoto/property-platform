@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { createServerSupabaseClient } from '@/lib/auth/supabase';
+import { createServerSupabaseClient } from '@/lib/auth/supabase-server';
 
 export const dynamic = 'force-dynamic';
 

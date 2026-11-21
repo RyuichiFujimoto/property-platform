@@ -1,19 +1,10 @@
+import 'server-only';
+
 import { createServerClient } from '@supabase/ssr';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/auth/env';
 import { ConfigurationError, logWarn } from '@/lib/errors';
-
-export function getSupabaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) throw new ConfigurationError('NEXT_PUBLIC_SUPABASE_URL is not set');
-  return url;
-}
-
-export function getSupabaseAnonKey(): string {
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!key) throw new ConfigurationError('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set');
-  return key;
-}
 
 export function getSupabaseServiceRoleKey(): string {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,8 +21,13 @@ export function isReadOnlyCookieError(error: unknown): boolean {
   return /can only be modified in a Server Action|read-only/i.test(error.message);
 }
 
+/**
+ * Server Component / Server Action / Route Handler 用のクライアント。
+ * session は cookie 経由で読み書きする。
+ */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
+
   return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
@@ -53,15 +49,14 @@ export async function createServerSupabaseClient() {
   });
 }
 
+/**
+ * RLS を迂回する管理用クライアント。service role key を扱うため server 限定。
+ */
 export function createServiceRoleClient() {
-  return createSupabaseClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
+  return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
-}
-
-export function createBrowserSupabaseClient() {
-  return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey());
 }

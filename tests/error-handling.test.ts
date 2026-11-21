@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { logWarn } from '@/lib/errors';
-import { isReadOnlyCookieError } from '@/lib/auth/supabase';
+import { isReadOnlyCookieError } from '@/lib/auth/supabase-server';
+
+vi.mock('server-only', () => ({}));
 
 // .env.local の有無でテスト結果が変わらないようにする。
 vi.mock('dotenv', () => ({
