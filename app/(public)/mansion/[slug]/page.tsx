@@ -1,13 +1,15 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getPublicMansion } from '@/lib/public/mansion';
+import { serializeJsonLd } from '@/lib/seo/json-ld';
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     return {
@@ -41,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function MansionDetailPage({ params }: Props) {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     notFound();
@@ -72,7 +75,7 @@ export default async function MansionDetailPage({ params }: Props) {
     <main className="mx-auto max-w-3xl p-6">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
       />
 
       <section className="mb-8">

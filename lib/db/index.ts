@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
 import { ConfigurationError, logError } from '@/lib/errors';
+import { postgresSslOption } from './ssl.js';
 
 let sqlInstance: postgres.Sql<{}> | null = null;
 
@@ -50,9 +51,10 @@ export function getSql(): postgres.Sql<{}> {
     );
   }
 
-  sqlInstance = postgres(normalizeConnectionString(databaseUrl), {
+  const connectionString = normalizeConnectionString(databaseUrl);
+  sqlInstance = postgres(connectionString, {
     max: 1,
-    ssl: { rejectUnauthorized: false },
+    ssl: postgresSslOption(connectionString),
     onnotice: (notice) => {
       if (notice.severity === 'WARNING' || notice.severity === 'ERROR') {
         logError('db', `postgres notice: ${notice.message}`, undefined, {

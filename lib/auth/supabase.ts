@@ -31,7 +31,7 @@ export function isReadOnlyCookieError(error: unknown): boolean {
 }
 
 export async function createServerSupabaseClient() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {

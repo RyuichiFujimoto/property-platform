@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'ページが見つかりません',
@@ -12,9 +13,9 @@ export default function NotFound() {
       <p className="mt-4 text-slate-600">
         お探しのページは存在しないか、まだ公開されていません。
       </p>
-      <a href="/" className="mt-6 inline-block underline">
+      <Link href="/" className="mt-6 inline-block underline">
         トップページへ
-      </a>
+      </Link>
     </main>
   );
 }

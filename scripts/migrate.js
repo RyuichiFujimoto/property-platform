@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { postgresSslOption } from '../lib/db/ssl.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,16 +14,7 @@ if (!DATABASE_URL) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationFile = path.join(__dirname, '..', 'supabase', 'migrations', '001_initial.sql');
-
-let migration;
-try {
-  migration = fs.readFileSync(migrationFile, 'utf8');
-} catch (err) {
-  console.error(`Failed to read migration file: ${migrationFile}`);
-  console.error(err);
-  process.exit(1);
-}
+const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
 
 // Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
 let connectionString = DATABASE_URL;
@@ -43,20 +35,30 @@ if (connectionString.startsWith('postgresql://')) {
 
 const sql = postgres(connectionString, {
   max: 1,
-  ssl: { rejectUnauthorized: false },
+  ssl: postgresSslOption(connectionString),
 });
 
-let migrationError = null;
 try {
+  const migrationFiles = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
   // 途中で失敗した場合に DB が中途半端な状態で残らないよう、1 トランザクションで適用する。
   await sql.begin(async (tx) => {
-    await tx.unsafe(migration);
+    for (const file of migrationFiles) {
+      const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await tx.unsafe(migration);
+    }
   });
-  console.log('Migration applied successfully');
+  for (const file of migrationFiles) {
+    console.log(`Applied ${file}`);
+  }
+  console.log('Migrations applied successfully');
 } catch (err) {
-  migrationError = err;
   console.error('Migration failed');
   console.error(err);
+  process.exitCode = 1;
 } finally {
   try {
     await sql.end();
@@ -64,9 +66,6 @@ try {
     // 接続クローズの失敗で本来のエラーを隠さない。
     console.error('Failed to close database connection');
     console.error(endErr);
+    process.exitCode = 1;
   }
-}
-
-if (migrationError) {
-  process.exit(1);
 }
