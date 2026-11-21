@@ -54,6 +54,8 @@ supabase db reset
 pnpm db:migrate
 ```
 
+`supabase/migrations/*.sql` をファイル名の昇順に適用し、`schema_migrations` に記録済みのファイルはスキップします。
+
 ### 5. seed
 
 ```bash
@@ -90,8 +92,16 @@ pnpm build
 | `pnpm typecheck` | TypeScript 型チェック |
 | `pnpm test` | テスト実行 |
 | `pnpm test:coverage` | テスト実行 + カバレッジ計測（`lib/` 配下） |
-| `pnpm db:migrate` | データベースマイグレーション |
+| `pnpm db:migrate` | データベースマイグレーション（全 migration を順に適用） |
 | `pnpm db:seed` | seed データ投入 |
+
+## オーナー登録（マイマンション）
+
+- `/mansion/<slug>` の CTA から `/register?mansion=<slug>` へ遷移します。
+- `/register` では Supabase Auth（メールアドレス + パスワード）でログイン / 新規登録し、棟・部屋番号・階数・専有面積・間取り・方角を入力して `owner_properties` に保存します。
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` が未設定の環境では、エラーにせず「登録機能は準備中」の表示になります。
+- メール確認が有効な場合は、`NEXT_PUBLIC_SITE_URL` の `/auth/callback` を Supabase Auth のリダイレクト許可リストに登録します。確認リンクはこの経路から `/register` に戻ります。
+- `supabase/migrations/003_auth_and_owner.sql` は Supabase Auth がある場合に本人用の RLS ポリシーを追加します。Auth がない PostgreSQL（PostGIS は必要）でも適用できますが、通常の DB ロールには対象テーブルへのアクセスを許可しません。既存の DB に後から Supabase Auth を追加する場合、追跡済みのマイグレーションは自動再実行されないため、Auth 設定後に同ファイルを改めて適用してください。
 
 ## ドキュメント
 

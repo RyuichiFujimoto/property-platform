@@ -38,15 +38,16 @@ test('applies the schema and row security in order and skips recorded migrations
   expect(begin).toHaveBeenCalledTimes(1);
   expect(unsafe).toHaveBeenNthCalledWith(1, expect.stringContaining('CREATE TABLE IF NOT EXISTS mansions'));
   expect(unsafe).toHaveBeenNthCalledWith(2, expect.stringContaining('ALTER TABLE mansions ENABLE ROW LEVEL SECURITY'));
+  expect(unsafe).toHaveBeenNthCalledWith(3, expect.stringContaining('CREATE POLICY owner_properties_select_own'));
   expect(tx).toHaveBeenCalledWith(expect.arrayContaining([
     'ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY',
   ]));
-  expect([...versions]).toEqual(['001_initial.sql', '002_enable_rls.sql']);
+  expect([...versions]).toEqual(['001_initial.sql', '002_enable_rls.sql', '003_auth_and_owner.sql']);
   expect(end).toHaveBeenCalledTimes(1);
 
   vi.resetModules();
   await import('../scripts/migrate.js');
 
-  expect(unsafe).toHaveBeenCalledTimes(2);
+  expect(unsafe).toHaveBeenCalledTimes(3);
   expect(end).toHaveBeenCalledTimes(2);
 });
