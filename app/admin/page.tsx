@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { SimplePage } from '@/components/SimplePage';
 import { createServerSupabaseClient } from '@/lib/auth/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -32,10 +33,5 @@ export default async function AdminPage() {
     notFound();
   }
 
-  return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold">管理画面</h1>
-      <p className="mt-4 text-slate-600">管理ツールのプレースホルダーです。</p>
-    </main>
-  );
+  return <SimplePage title="管理画面" description="管理ツールのプレースホルダーです。" />;
 }

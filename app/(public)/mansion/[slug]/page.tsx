@@ -1,10 +1,21 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { joinDefined } from '@/lib/format';
 import { getPublicMansion } from '@/lib/public/mansion';
 import { serializeJsonLd } from '@/lib/seo/json-ld';
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+function InfoRow({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <>
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="text-slate-800">{value}</dd>
+    </>
+  );
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -92,9 +103,10 @@ export default async function MansionDetailPage({ params }: Props) {
         )}
         {(data.builtYear || data.totalUnits) && (
           <p className="mt-2 text-sm text-slate-500">
-            {data.builtYear ? `竣工：${data.builtYear}年` : ''}
-            {data.builtYear && data.totalUnits ? ' / ' : ''}
-            {data.totalUnits ? `総戸数：${data.totalUnits}戸` : ''}
+            {joinDefined([
+              data.builtYear ? `竣工：${data.builtYear}年` : null,
+              data.totalUnits ? `総戸数：${data.totalUnits}戸` : null,
+            ])}
           </p>
         )}
       </section>
@@ -103,30 +115,10 @@ export default async function MansionDetailPage({ params }: Props) {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-slate-900">基本情報</h2>
           <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-            {data.structure && (
-              <>
-                <dt className="text-slate-500">構造</dt>
-                <dd className="text-slate-800">{data.structure}</dd>
-              </>
-            )}
-            {data.developer && (
-              <>
-                <dt className="text-slate-500">デベロッパー</dt>
-                <dd className="text-slate-800">{data.developer}</dd>
-              </>
-            )}
-            {data.constructor && (
-              <>
-                <dt className="text-slate-500">施工会社</dt>
-                <dd className="text-slate-800">{data.constructor}</dd>
-              </>
-            )}
-            {data.managementCompany && (
-              <>
-                <dt className="text-slate-500">管理会社</dt>
-                <dd className="text-slate-800">{data.managementCompany}</dd>
-              </>
-            )}
+            <InfoRow label="構造" value={data.structure} />
+            <InfoRow label="デベロッパー" value={data.developer} />
+            <InfoRow label="施工会社" value={data.constructor} />
+            <InfoRow label="管理会社" value={data.managementCompany} />
           </dl>
         </section>
       ) : null}
@@ -142,9 +134,16 @@ export default async function MansionDetailPage({ params }: Props) {
                   {b.buildingLabel ? `（${b.buildingLabel}）` : ''}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {b.floorsAbove ? `地上${b.floorsAbove}階` : ''}
-                  {b.floorsBelow ? ` 地下${b.floorsBelow}階` : ''}
-                  {b.totalUnits ? ` / 総戸数 ${b.totalUnits}戸` : ''}
+                  {joinDefined([
+                    joinDefined(
+                      [
+                        b.floorsAbove ? `地上${b.floorsAbove}階` : null,
+                        b.floorsBelow ? `地下${b.floorsBelow}階` : null,
+                      ],
+                      ' '
+                    ),
+                    b.totalUnits ? `総戸数 ${b.totalUnits}戸` : null,
+                  ])}
                 </p>
               </li>
             ))}

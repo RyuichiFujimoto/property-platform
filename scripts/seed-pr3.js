@@ -2,10 +2,10 @@ import dotenv from 'dotenv';
 import postgres from 'postgres';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { ulid } from 'ulid';
 import crypto from 'crypto';
 import { normalizeConnectionString } from '../lib/db/connection.mjs';
 import { postgresSslOption } from '../lib/db/ssl.js';
+import { newBuildingId, newMansionId, newProjectId } from '../lib/ids.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -23,10 +23,6 @@ const sql = postgres(connectionString, {
   max: 1,
   ssl: postgresSslOption(connectionString),
 });
-
-const newProjectId = () => `PRJ_${ulid()}`;
-const newMansionId = () => `MAN_${ulid()}`;
-const newBuildingId = () => `BLD_${ulid()}`;
 
 const dataFile = resolve(process.cwd(), 'data', 'pr3-mansions.json');
 

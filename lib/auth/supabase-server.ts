@@ -4,12 +4,11 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/auth/env';
-import { ConfigurationError, logWarn } from '@/lib/errors';
+import { requireEnv } from '@/lib/env';
+import { logWarn } from '@/lib/errors';
 
 export function getSupabaseServiceRoleKey(): string {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new ConfigurationError('SUPABASE_SERVICE_ROLE_KEY is not set');
-  return key;
+  return requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
 }
 
 /**
