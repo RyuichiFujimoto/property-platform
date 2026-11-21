@@ -68,13 +68,13 @@ describe('getSql', () => {
     );
   });
 
-  test('postgresql:// 以外の scheme は加工しない', async () => {
-    process.env.DATABASE_URL = 'postgres://user:pass@db.example.com:5432/postgres';
+  test('postgres:// のパスワードも URL エンコードする', async () => {
+    process.env.DATABASE_URL = 'postgres://user:p@ss@db.example.com:5432/postgres';
     const getSql = await importGetSql();
     getSql();
 
     expect(postgresMock).toHaveBeenCalledWith(
-      'postgres://user:pass@db.example.com:5432/postgres',
+      'postgres://user:p%40ss@db.example.com:5432/postgres',
       expect.anything(),
     );
   });

@@ -1,9 +1,10 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
-import { postgresSslOption } from '../lib/db/ssl.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { normalizeConnectionString } from '../lib/db/connection.mjs';
+import { postgresSslOption } from '../lib/db/ssl.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -16,23 +17,7 @@ if (!DATABASE_URL) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
 
-// Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
-let connectionString = DATABASE_URL;
-if (connectionString.startsWith('postgresql://')) {
-  const rest = connectionString.slice('postgresql://'.length);
-  const atIndex = rest.lastIndexOf('@');
-  if (atIndex > 0) {
-    const userInfo = rest.slice(0, atIndex);
-    const hostPart = rest.slice(atIndex + 1);
-    const colonIndex = userInfo.indexOf(':');
-    if (colonIndex > 0) {
-      const user = userInfo.slice(0, colonIndex);
-      const password = userInfo.slice(colonIndex + 1);
-      connectionString = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${hostPart}`;
-    }
-  }
-}
-
+const connectionString = normalizeConnectionString(DATABASE_URL);
 const sql = postgres(connectionString, {
   max: 1,
   ssl: postgresSslOption(connectionString),
@@ -45,16 +30,32 @@ try {
     .sort();
 
   // 途中で失敗した場合に DB が中途半端な状態で残らないよう、1 トランザクションで適用する。
-  await sql.begin(async (tx) => {
-    for (const file of migrationFiles) {
+  const pending = await sql.begin(async (tx) => {
+    await tx`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )
+    `;
+    await tx`ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY`;
+
+    const applied = new Set(
+      (await tx`SELECT version FROM schema_migrations`).map((row) => row.version)
+    );
+    const pending = migrationFiles.filter((file) => !applied.has(file));
+
+    for (const file of pending) {
       const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       await tx.unsafe(migration);
+      await tx`INSERT INTO schema_migrations (version) VALUES (${file})`;
     }
+    return pending;
   });
-  for (const file of migrationFiles) {
+
+  for (const file of pending) {
     console.log(`Applied ${file}`);
   }
-  console.log('Migrations applied successfully');
+  console.log(`Migration completed (${pending.length} applied, ${migrationFiles.length - pending.length} already applied)`);
 } catch (err) {
   console.error('Migration failed');
   console.error(err);
