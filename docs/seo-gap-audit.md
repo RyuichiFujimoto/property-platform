@@ -36,14 +36,14 @@
 - 要件: `docs/seo.md` 必須メタ情報「`<link rel="canonical">`」「`og:url`」
 - 現状: `app/(public)/mansion/[slug]/page.tsx` は `canonical: '/mansion/...'` と相対値のみ。`app/layout.tsx` に `metadataBase` がありません。
 - 影響: canonical と og:url が絶対 URL になりません。og:url は絶対 URL が必須で、SNS シェア時のプレビューが機能しません。canonical も、プレビュー環境や `www` 有無の重複 URL を正規化できません。
-- 対応: `layout.tsx` に `metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000')` を設定し、環境変数を Vercel に登録。
+- 対応: `layout.tsx` の `metadataBase` を `NEXT_PUBLIC_SITE_URL` から設定する。本番では公開サイトの URL を環境変数に登録し、未設定時はエラーにする。
 
 ### 4. プレビュー用の架空データが `index: true` を宣言している — 実装バグ
 
 - 要件: `docs/seo.md` noindex 対象「架空の市場データを表示する可能性があるページ」
 - 現状: `lib/public/mansion.ts` の `isPreviewMode()` が真のとき（`NODE_ENV=development` / `VERCEL_ENV=preview` / `ALLOW_PREVIEW_DATA=true`）、どの slug でも fixture を返します。一方 `generateMetadata()` はデータがあれば無条件で `robots: { index: true }` を返します。
 - 影響: Vercel のプレビュー環境は既定で `X-Robots-Tag: noindex` が付くため実害は出にくいですが、`ALLOW_PREVIEW_DATA=true` が本番に紛れ込むと、実在しない URL 全てが「実在するマンションページ」として index 宣言されます。fixture 由来の内容は全 slug で同一なので、大量の重複コンテンツにもなります。
-- 対応: preview 由来のデータでは `robots: { index: false }`。あわせて本番ビルドで `ALLOW_PREVIEW_DATA` が真なら起動時に警告を出す。
+- 対応: 本番では `ALLOW_PREVIEW_DATA` に関係なく fixture を無効化する。プレビューでも fixture は専用 slug に限定し、`robots: { index: false }` として sitemap に載せない。
 
 ---
 

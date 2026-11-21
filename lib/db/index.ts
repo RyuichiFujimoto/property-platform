@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
 import { ConfigurationError, logError } from '@/lib/errors';
+import { normalizeConnectionString } from './connection.mjs';
+import { postgresSslOption } from './ssl.js';
 
 let sqlInstance: postgres.Sql<{}> | null = null;
 
@@ -15,24 +17,6 @@ function loadDatabaseUrl(): string | undefined {
  */
 export function isDatabaseConfigured(): boolean {
   return Boolean(loadDatabaseUrl());
-}
-
-/** Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する。 */
-function normalizeConnectionString(databaseUrl: string): string {
-  if (!databaseUrl.startsWith('postgresql://')) return databaseUrl;
-
-  const rest = databaseUrl.slice('postgresql://'.length);
-  const atIndex = rest.lastIndexOf('@');
-  if (atIndex <= 0) return databaseUrl;
-
-  const userInfo = rest.slice(0, atIndex);
-  const hostPart = rest.slice(atIndex + 1);
-  const colonIndex = userInfo.indexOf(':');
-  if (colonIndex <= 0) return databaseUrl;
-
-  const user = userInfo.slice(0, colonIndex);
-  const password = userInfo.slice(colonIndex + 1);
-  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${hostPart}`;
 }
 
 /**
@@ -50,9 +34,10 @@ export function getSql(): postgres.Sql<{}> {
     );
   }
 
-  sqlInstance = postgres(normalizeConnectionString(databaseUrl), {
-    max: 1,
-    ssl: { rejectUnauthorized: false },
+  const connectionString = normalizeConnectionString(databaseUrl);
+  sqlInstance = postgres(connectionString, {
+    max: Number(process.env.DATABASE_POOL_MAX ?? 1),
+    ssl: postgresSslOption(connectionString),
     onnotice: (notice) => {
       if (notice.severity === 'WARNING' || notice.severity === 'ERROR') {
         logError('db', `postgres notice: ${notice.message}`, undefined, {

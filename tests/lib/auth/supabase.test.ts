@@ -3,12 +3,16 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 const createServerClient = vi.hoisted(() =>
   vi.fn((_url: string, _key: string, _options: unknown) => ({ tag: 'server-client' })),
 );
+const createBrowserClient = vi.hoisted(() =>
+  vi.fn((_url: string, _key: string) => ({ tag: 'browser-client' })),
+);
 const createSupabaseClient = vi.hoisted(() =>
   vi.fn((_url: string, _key: string, _options?: unknown) => ({ tag: 'supabase-client' })),
 );
 const cookies = vi.hoisted(() => vi.fn());
 
-vi.mock('@supabase/ssr', () => ({ createServerClient }));
+vi.mock('server-only', () => ({}));
+vi.mock('@supabase/ssr', () => ({ createBrowserClient, createServerClient }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: createSupabaseClient }));
 vi.mock('next/headers', () => ({ cookies }));
 
@@ -27,6 +31,7 @@ describe('lib/auth/supabase', () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
     createServerClient.mockClear();
+    createBrowserClient.mockClear();
     createSupabaseClient.mockClear();
     cookies.mockReset();
   });
@@ -39,9 +44,8 @@ describe('lib/auth/supabase', () => {
   });
 
   test('環境変数から URL と key を読み出す', async () => {
-    const { getSupabaseUrl, getSupabaseAnonKey, getSupabaseServiceRoleKey } = await import(
-      '@/lib/auth/supabase'
-    );
+    const { getSupabaseUrl, getSupabaseAnonKey } = await import('@/lib/auth/env');
+    const { getSupabaseServiceRoleKey } = await import('@/lib/auth/supabase-server');
 
     expect(getSupabaseUrl()).toBe('https://project.supabase.co');
     expect(getSupabaseAnonKey()).toBe('anon-key');
@@ -49,9 +53,8 @@ describe('lib/auth/supabase', () => {
   });
 
   test('環境変数が未設定の場合は変数名を含めて throw する', async () => {
-    const { getSupabaseUrl, getSupabaseAnonKey, getSupabaseServiceRoleKey } = await import(
-      '@/lib/auth/supabase'
-    );
+    const { getSupabaseUrl, getSupabaseAnonKey } = await import('@/lib/auth/env');
+    const { getSupabaseServiceRoleKey } = await import('@/lib/auth/supabase-server');
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -66,8 +69,8 @@ describe('lib/auth/supabase', () => {
       getAll: vi.fn(() => [{ name: 'sb', value: 'v' }]),
       set: vi.fn(),
     };
-    cookies.mockReturnValue(cookieStore);
-    const { createServerSupabaseClient } = await import('@/lib/auth/supabase');
+    cookies.mockResolvedValue(cookieStore);
+    const { createServerSupabaseClient } = await import('@/lib/auth/supabase-server');
 
     const client = await createServerSupabaseClient();
 
@@ -97,8 +100,8 @@ describe('lib/auth/supabase', () => {
         throw new Error('Cookies can only be modified in a Server Action');
       }),
     };
-    cookies.mockReturnValue(cookieStore);
-    const { createServerSupabaseClient } = await import('@/lib/auth/supabase');
+    cookies.mockResolvedValue(cookieStore);
+    const { createServerSupabaseClient } = await import('@/lib/auth/supabase-server');
     await createServerSupabaseClient();
 
     const options = createServerClient.mock.calls[0][2] as {
@@ -111,7 +114,7 @@ describe('lib/auth/supabase', () => {
   });
 
   test('createServiceRoleClient は service role key と session 無効化オプションを使う', async () => {
-    const { createServiceRoleClient } = await import('@/lib/auth/supabase');
+    const { createServiceRoleClient } = await import('@/lib/auth/supabase-server');
 
     expect(createServiceRoleClient()).toEqual({ tag: 'supabase-client' });
     expect(createSupabaseClient).toHaveBeenCalledWith(
@@ -122,10 +125,10 @@ describe('lib/auth/supabase', () => {
   });
 
   test('createBrowserSupabaseClient は anon key を使う', async () => {
-    const { createBrowserSupabaseClient } = await import('@/lib/auth/supabase');
+    const { createBrowserSupabaseClient } = await import('@/lib/auth/supabase-client');
 
-    expect(createBrowserSupabaseClient()).toEqual({ tag: 'supabase-client' });
-    expect(createSupabaseClient).toHaveBeenCalledWith(
+    expect(createBrowserSupabaseClient()).toEqual({ tag: 'browser-client' });
+    expect(createBrowserClient).toHaveBeenCalledWith(
       'https://project.supabase.co',
       'anon-key',
     );

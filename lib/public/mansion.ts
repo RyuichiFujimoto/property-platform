@@ -1,4 +1,5 @@
 import { getSql } from '@/lib/db';
+import { isProductionDeployment } from '@/lib/deployment-env';
 import { logWarn } from '@/lib/errors';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
 
@@ -41,21 +42,16 @@ export interface PublicMansionIndexEntry {
   updatedAt: Date | null;
 }
 
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,127}$/;
+
 function isPreviewMode(): boolean {
-  if (process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview') {
-    return true;
-  }
+  if (isProductionDeployment()) return false;
 
-  if (process.env.ALLOW_PREVIEW_DATA !== 'true') return false;
-
-  if (process.env.NODE_ENV === 'production') {
-    logWarn(
-      'public/mansion',
-      'ALLOW_PREVIEW_DATA is enabled in a production build, serving fixture data as noindex'
-    );
-  }
-
-  return true;
+  return (
+    process.env.ALLOW_PREVIEW_DATA === 'true' ||
+    process.env.VERCEL_ENV === 'preview' ||
+    process.env.NODE_ENV === 'development'
+  );
 }
 
 function getAttr(map: Map<string, string | null>, key: string): string | null {
@@ -112,7 +108,9 @@ export async function getPublicMansionIndexEntries(): Promise<PublicMansionIndex
 }
 
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
-  if (isPreviewMode()) {
+  if (!SLUG_PATTERN.test(slug)) return null;
+
+  if (slug === fixtureMansion.slug && isPreviewMode()) {
     return fixtureMansion;
   }
 

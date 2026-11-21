@@ -3,6 +3,8 @@ import postgres from 'postgres';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { normalizeConnectionString } from '../lib/db/connection.mjs';
+import { postgresSslOption } from '../lib/db/ssl.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -13,50 +15,51 @@ if (!DATABASE_URL) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationFile = path.join(__dirname, '..', 'supabase', 'migrations', '001_initial.sql');
+const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
 
-let migration;
-try {
-  migration = fs.readFileSync(migrationFile, 'utf8');
-} catch (err) {
-  console.error(`Failed to read migration file: ${migrationFile}`);
-  console.error(err);
-  process.exit(1);
-}
-
-// Supabase 等のパスワードに @ や / が含まれる場合、URL エンコードしてから接続する
-let connectionString = DATABASE_URL;
-if (connectionString.startsWith('postgresql://')) {
-  const rest = connectionString.slice('postgresql://'.length);
-  const atIndex = rest.lastIndexOf('@');
-  if (atIndex > 0) {
-    const userInfo = rest.slice(0, atIndex);
-    const hostPart = rest.slice(atIndex + 1);
-    const colonIndex = userInfo.indexOf(':');
-    if (colonIndex > 0) {
-      const user = userInfo.slice(0, colonIndex);
-      const password = userInfo.slice(colonIndex + 1);
-      connectionString = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${hostPart}`;
-    }
-  }
-}
-
+const connectionString = normalizeConnectionString(DATABASE_URL);
 const sql = postgres(connectionString, {
   max: 1,
-  ssl: { rejectUnauthorized: false },
+  ssl: postgresSslOption(connectionString),
 });
 
-let migrationError = null;
 try {
+  const migrationFiles = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
   // 途中で失敗した場合に DB が中途半端な状態で残らないよう、1 トランザクションで適用する。
-  await sql.begin(async (tx) => {
-    await tx.unsafe(migration);
+  const pending = await sql.begin(async (tx) => {
+    await tx`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )
+    `;
+    await tx`ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY`;
+
+    const applied = new Set(
+      (await tx`SELECT version FROM schema_migrations`).map((row) => row.version)
+    );
+    const pending = migrationFiles.filter((file) => !applied.has(file));
+
+    for (const file of pending) {
+      const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await tx.unsafe(migration);
+      await tx`INSERT INTO schema_migrations (version) VALUES (${file})`;
+    }
+    return pending;
   });
-  console.log('Migration applied successfully');
+
+  for (const file of pending) {
+    console.log(`Applied ${file}`);
+  }
+  console.log(`Migration completed (${pending.length} applied, ${migrationFiles.length - pending.length} already applied)`);
 } catch (err) {
-  migrationError = err;
   console.error('Migration failed');
   console.error(err);
+  process.exitCode = 1;
 } finally {
   try {
     await sql.end();
@@ -64,9 +67,6 @@ try {
     // 接続クローズの失敗で本来のエラーを隠さない。
     console.error('Failed to close database connection');
     console.error(endErr);
+    process.exitCode = 1;
   }
-}
-
-if (migrationError) {
-  process.exit(1);
 }

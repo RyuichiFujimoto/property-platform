@@ -52,10 +52,11 @@ describe('getPublicMansion', () => {
   });
 
   test('preview mode 時は DB を参照せず fixture を返す', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
     process.env.ALLOW_PREVIEW_DATA = 'true';
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
     expect(getSql).not.toHaveBeenCalled();
   });
 
@@ -63,14 +64,35 @@ describe('getPublicMansion', () => {
     process.env.VERCEL_ENV = 'preview';
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
+  });
+
+  test('preview mode でも fixture と異なる slug は DB を参照する', async () => {
+    process.env.VERCEL_ENV = 'preview';
+    const { sql } = createSqlMock([[]]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansion } = await importModule();
+
+    await expect(getPublicMansion(`${fixtureMansion.slug}-other`)).resolves.toBeNull();
+    expect(getSql).toHaveBeenCalled();
+  });
+
+  test.each(['production', undefined])('本番 (VERCEL_ENV=%s) では ALLOW_PREVIEW_DATA が有効でも fixture を返さない', async (vercelEnv) => {
+    vi.stubEnv('VERCEL_ENV', vercelEnv);
+    process.env.ALLOW_PREVIEW_DATA = 'true';
+    const { sql } = createSqlMock([[]]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansion } = await importModule();
+
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toBeNull();
+    expect(getSql).toHaveBeenCalled();
   });
 
   test('NODE_ENV=development でも fixture を返す', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
   });
 
   // 設定ミスを「データが無い」と見せると 404 / noindex として埋もれるので、必ず失敗させる。
@@ -278,6 +300,7 @@ describe('getPublicMansionIndexEntries', () => {
   });
 
   test('公開マンションの slug と更新日時を返す', async () => {
+    process.env.ALLOW_PREVIEW_DATA = 'true';
     const updatedAt = new Date('2026-01-02T03:04:05Z');
     const { sql, queries } = createSqlMock([
       [
@@ -300,7 +323,7 @@ describe('getPublicMansionIndexEntries', () => {
 
   // 架空データの URL を sitemap に載せると、実在しないページを検索エンジンに申告してしまう。
   test('preview mode では空を返し DB も参照しない', async () => {
-    process.env.ALLOW_PREVIEW_DATA = 'true';
+    process.env.VERCEL_ENV = 'preview';
     const { getPublicMansionIndexEntries } = await importModule();
 
     await expect(getPublicMansionIndexEntries()).resolves.toEqual([]);
