@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { hostOf, normalizeConnectionString, sslConfigFor } from '../lib/db/connection.mjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { hostOf, normalizeConnectionString } from '../lib/db/connection.mjs';
+import { postgresSslOption } from '../lib/db/ssl.js';
 
 describe('normalizeConnectionString', () => {
   it('encodes credentials that contain @ and /', () => {
@@ -37,22 +38,35 @@ describe('hostOf', () => {
   });
 });
 
-describe('sslConfigFor', () => {
+describe('postgresSslOption', () => {
+  beforeEach(() => {
+    vi.stubEnv('DATABASE_CA_CERT', undefined);
+    vi.stubEnv('DATABASE_SSL_MODE', undefined);
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
   it('verifies certificates for remote hosts by default', () => {
-    expect(sslConfigFor('postgresql://user:pass@db.example.com:5432/postgres', undefined)).toBe(
-      'require'
+    expect(postgresSslOption('postgresql://user:pass@db.example.com:5432/postgres')).toBe(
+      'verify-full'
     );
   });
 
   it('skips TLS for local hosts', () => {
-    expect(sslConfigFor('postgresql://user:pass@localhost:5432/postgres', undefined)).toBe(false);
-    expect(sslConfigFor('postgresql://user:pass@127.0.0.1:5432/postgres', undefined)).toBe(false);
+    expect(postgresSslOption('postgresql://user:pass@localhost:5432/postgres')).toBe(false);
+    expect(postgresSslOption('postgresql://user:pass@127.0.0.1:5432/postgres')).toBe(false);
+    expect(postgresSslOption('postgresql://user:pass@[::1]:5432/postgres')).toBe(false);
   });
 
   it('honours explicit DATABASE_SSL_MODE', () => {
     const url = 'postgresql://user:pass@db.example.com:5432/postgres';
-    expect(sslConfigFor(url, 'disable')).toBe(false);
-    expect(sslConfigFor(url, 'require')).toBe('require');
-    expect(sslConfigFor(url, 'no-verify')).toEqual({ rejectUnauthorized: false });
+    vi.stubEnv('DATABASE_SSL_MODE', 'disable');
+    expect(postgresSslOption(url)).toBe('verify-full');
+    vi.stubEnv('DATABASE_SSL_MODE', 'require');
+    expect(postgresSslOption(url)).toBe('require');
+    vi.stubEnv('DATABASE_SSL_MODE', 'no-verify');
+    expect(postgresSslOption(url)).toBe('verify-full');
+    vi.stubEnv('DATABASE_CA_CERT', 'custom-ca');
+    expect(postgresSslOption(url)).toEqual({ rejectUnauthorized: true, ca: 'custom-ca' });
   });
 });

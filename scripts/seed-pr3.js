@@ -4,7 +4,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { ulid } from 'ulid';
 import crypto from 'crypto';
-import { normalizeConnectionString, sslConfigFor } from '../lib/db/connection.mjs';
+import { normalizeConnectionString } from '../lib/db/connection.mjs';
+import { postgresSslOption } from '../lib/db/ssl.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -17,9 +18,10 @@ if (!DATABASE_URL) {
 const CONFIDENCE = 0.7;
 const PREFECTURE = '東京都';
 
-const sql = postgres(normalizeConnectionString(DATABASE_URL), {
+const connectionString = normalizeConnectionString(DATABASE_URL);
+const sql = postgres(connectionString, {
   max: 1,
-  ssl: sslConfigFor(DATABASE_URL),
+  ssl: postgresSslOption(connectionString),
 });
 
 const newProjectId = () => `PRJ_${ulid()}`;
@@ -27,8 +29,36 @@ const newMansionId = () => `MAN_${ulid()}`;
 const newBuildingId = () => `BLD_${ulid()}`;
 
 const dataFile = resolve(process.cwd(), 'data', 'pr3-mansions.json');
-const rawPayload = JSON.parse(readFileSync(dataFile, 'utf8'));
-const rawString = JSON.stringify(rawPayload);
+
+function loadPayload() {
+  let fileContent;
+  try {
+    fileContent = readFileSync(dataFile, 'utf8');
+  } catch (err) {
+    throw new Error(`Failed to read seed data file: ${dataFile}`, { cause: err });
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(fileContent);
+  } catch (err) {
+    throw new Error(`Seed data file is not valid JSON: ${dataFile}`, { cause: err });
+  }
+
+  if (!Array.isArray(payload.records)) {
+    throw new Error(`Seed data file must contain a "records" array: ${dataFile}`);
+  }
+  payload.records.forEach((record, index) => {
+    if (!record.mansion) {
+      throw new Error(`records[${index}] is missing "mansion": ${dataFile}`);
+    }
+    if (!Array.isArray(record.buildings)) {
+      throw new Error(`records[${index}] is missing a "buildings" array: ${dataFile}`);
+    }
+  });
+
+  return payload;
+}
 
 function validatePayload(payload) {
   const errors = [];
@@ -81,6 +111,7 @@ function attributeSources(entityType, entityId, values, sourceId, observationId)
 }
 
 async function run() {
+  const rawPayload = loadPayload();
   validatePayload(rawPayload);
 
   const now = new Date().toISOString();
@@ -101,7 +132,7 @@ async function run() {
         `
       )[0].id;
 
-    const contentHash = crypto.createHash('sha256').update(rawString).digest('hex');
+    const contentHash = crypto.createHash('sha256').update(JSON.stringify(rawPayload)).digest('hex');
     // Raw 層は追記のみ。同一内容が既にあれば再利用する
     const [existingRaw] = await tx`
       SELECT id FROM raw_source_records
@@ -147,6 +178,7 @@ async function run() {
             ward = EXCLUDED.ward,
             address_summary = EXCLUDED.address_summary,
             updated_at = EXCLUDED.updated_at
+          WHERE projects.public_status = 'draft' AND projects.review_status = 'pending'
         `;
 
         touchedEntities.push(['project', projectId]);
@@ -204,6 +236,7 @@ async function run() {
           mansion_type = EXCLUDED.mansion_type,
           confidence_score = EXCLUDED.confidence_score,
           updated_at = EXCLUDED.updated_at
+        WHERE mansions.public_status = 'draft' AND mansions.review_status = 'pending'
       `;
 
       touchedEntities.push(['mansion', mansionId]);
@@ -267,6 +300,7 @@ async function run() {
             structure = EXCLUDED.structure,
             confidence_score = EXCLUDED.confidence_score,
             updated_at = EXCLUDED.updated_at
+          WHERE buildings.public_status = 'draft' AND buildings.review_status = 'pending'
         `;
 
         touchedEntities.push(['building', buildingId]);
@@ -291,11 +325,12 @@ async function run() {
       }
     }
 
-    // このソース由来の来歴は毎回置き換える（再実行で重複しない）
+    // 公開許可を得ていない来歴だけ置き換える
     for (const [entityType, entityId] of touchedEntities) {
       await tx`
         DELETE FROM entity_attribute_sources
         WHERE entity_type = ${entityType} AND entity_id = ${entityId} AND source_id = ${sourceId}
+          AND publication_allowed = false
       `;
     }
 
@@ -316,8 +351,16 @@ async function run() {
 try {
   await run();
 } catch (err) {
-  console.error('PR3 seed failed:', err.message);
+  console.error('PR3 seed failed');
+  console.error(err);
   process.exitCode = 1;
 } finally {
-  await sql.end();
+  // 失敗時も接続を閉じる。閉じ忘れるとプロセスが終了せず、CI が exit code を受け取れない。
+  try {
+    await sql.end();
+  } catch (endErr) {
+    console.error('Failed to close database connection');
+    console.error(endErr);
+    process.exitCode = 1;
+  }
 }

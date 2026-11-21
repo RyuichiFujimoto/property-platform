@@ -3,7 +3,8 @@ import postgres from 'postgres';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { normalizeConnectionString, sslConfigFor } from '../lib/db/connection.mjs';
+import { normalizeConnectionString } from '../lib/db/connection.mjs';
+import { postgresSslOption } from '../lib/db/ssl.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -16,49 +17,56 @@ if (!DATABASE_URL) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
 
-const migrationFiles = fs
-  .readdirSync(migrationsDir)
-  .filter((f) => f.endsWith('.sql'))
-  .sort();
-
-const sql = postgres(normalizeConnectionString(DATABASE_URL), {
+const connectionString = normalizeConnectionString(DATABASE_URL);
+const sql = postgres(connectionString, {
   max: 1,
-  ssl: sslConfigFor(DATABASE_URL),
+  ssl: postgresSslOption(connectionString),
 });
 
 try {
-  await sql`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version text PRIMARY KEY,
-      applied_at timestamptz NOT NULL DEFAULT now()
-    )
-  `;
+  const migrationFiles = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
 
-  const applied = new Set(
-    (await sql`SELECT version FROM schema_migrations`).map((row) => row.version)
-  );
+  // 途中で失敗した場合に DB が中途半端な状態で残らないよう、1 トランザクションで適用する。
+  const pending = await sql.begin(async (tx) => {
+    await tx`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )
+    `;
+    await tx`ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY`;
 
-  let appliedCount = 0;
-  for (const file of migrationFiles) {
-    if (applied.has(file)) {
-      console.log(`skip ${file} (already applied)`);
-      continue;
-    }
+    const applied = new Set(
+      (await tx`SELECT version FROM schema_migrations`).map((row) => row.version)
+    );
+    const pending = migrationFiles.filter((file) => !applied.has(file));
 
-    const statements = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    // 1 migration = 1 transaction。途中で失敗しても部分適用にならない
-    await sql.begin(async (tx) => {
-      await tx.unsafe(statements);
+    for (const file of pending) {
+      const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await tx.unsafe(migration);
       await tx`INSERT INTO schema_migrations (version) VALUES (${file})`;
-    });
-    appliedCount += 1;
-    console.log(`applied ${file}`);
-  }
+    }
+    return pending;
+  });
 
-  console.log(`Migration completed (${appliedCount} applied, ${migrationFiles.length} total)`);
+  for (const file of pending) {
+    console.log(`Applied ${file}`);
+  }
+  console.log(`Migration completed (${pending.length} applied, ${migrationFiles.length - pending.length} already applied)`);
 } catch (err) {
-  console.error('Migration failed:', err.message);
+  console.error('Migration failed');
+  console.error(err);
   process.exitCode = 1;
 } finally {
-  await sql.end();
+  try {
+    await sql.end();
+  } catch (endErr) {
+    // 接続クローズの失敗で本来のエラーを隠さない。
+    console.error('Failed to close database connection');
+    console.error(endErr);
+    process.exitCode = 1;
+  }
 }
