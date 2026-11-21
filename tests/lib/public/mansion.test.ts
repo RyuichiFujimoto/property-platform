@@ -65,6 +65,16 @@ describe('getPublicMansion', () => {
     await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
   });
 
+  test('VERCEL_ENV=production では ALLOW_PREVIEW_DATA が有効でも fixture を返さない', async () => {
+    process.env.VERCEL_ENV = 'production';
+    process.env.ALLOW_PREVIEW_DATA = 'true';
+    getSql.mockReturnValue(null);
+    const { getPublicMansion } = await importModule();
+
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toBeNull();
+    expect(getSql).toHaveBeenCalled();
+  });
+
   test('NODE_ENV=development でも fixture を返す', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const { getPublicMansion } = await importModule();

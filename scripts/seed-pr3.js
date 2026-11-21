@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { postgresSslOption } from '../lib/db/ssl.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { ulid } from 'ulid';
@@ -31,7 +32,7 @@ if (connectionString.startsWith('postgresql://')) {
 
 const sql = postgres(connectionString, {
   max: 1,
-  ssl: { rejectUnauthorized: false },
+  ssl: postgresSslOption(connectionString),
 });
 
 const newProjectId = () => `PRJ_${ulid()}`;

@@ -41,7 +41,7 @@ describe('getSql', () => {
     expect(getSql()).toEqual({ tag: 'sql-instance' });
     expect(postgresMock).toHaveBeenCalledWith('postgresql://user:pass@db.example.com:5432/postgres', {
       max: 1,
-      ssl: { rejectUnauthorized: false },
+      ssl: 'verify-full',
     });
   });
 
