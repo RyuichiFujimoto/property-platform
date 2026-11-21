@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { getSessionUser, isSupabaseConfigured } from '@/lib/auth/session';
+import React from 'react';
+import { isSupabaseConfigured } from '@/lib/auth/env';
+import { getSessionUser } from '@/lib/auth/session';
 import { signOutAction } from '@/lib/owner/actions';
 import { listOwnerProperties } from '@/lib/owner/queries';
 import { getPublicMansion } from '@/lib/public/mansion';
@@ -8,7 +10,7 @@ import AuthForm from './AuthForm';
 import OwnerPropertyForm, { type BuildingChoice } from './OwnerPropertyForm';
 
 interface Props {
-  searchParams: { mansion?: string };
+  searchParams: Promise<{ mansion?: string | string[]; auth_error?: string | string[] }>;
 }
 
 export const metadata: Metadata = {
@@ -18,7 +20,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RegisterPage({ searchParams }: Props) {
-  const slug = searchParams.mansion ?? null;
+  const { mansion: requestedSlug, auth_error: authError } = await searchParams;
+  const slug = typeof requestedSlug === 'string' && requestedSlug ? requestedSlug : null;
   const mansion = slug ? await getPublicMansion(slug) : null;
   const configured = isSupabaseConfigured();
   const user = await getSessionUser();
@@ -49,6 +52,12 @@ export default async function RegisterPage({ searchParams }: Props) {
       <p className="mt-4 text-slate-600">
         マイマンションに登録すると、自宅の参考価格や相場をいつでも確認できます。
       </p>
+
+      {authError === '1' && (
+        <p role="alert" className="mt-4 text-sm text-red-700">
+          メール確認を完了できませんでした。リンクを確認するか、再度お試しください。
+        </p>
+      )}
 
       {user && (
         <div className="mt-6 flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm">
@@ -93,7 +102,7 @@ export default async function RegisterPage({ searchParams }: Props) {
         </section>
       ) : !user ? (
         <AuthForm mansionSlug={slug} />
-      ) : mansion ? (
+      ) : mansion && !mansion.isPreview ? (
         <OwnerPropertyForm mansionSlug={mansion.slug} buildings={buildings} />
       ) : (
         <p className="mt-8 text-slate-600">

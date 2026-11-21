@@ -25,11 +25,11 @@ describe('getSql', () => {
     else process.env.DATABASE_URL = savedUrl;
   });
 
-  test('DATABASE_URL が無い場合は null を返す', async () => {
+  test('DATABASE_URL が無い場合は ConfigurationError を投げる', async () => {
     delete process.env.DATABASE_URL;
     const getSql = await importGetSql();
 
-    expect(getSql()).toBeNull();
+    expect(() => getSql()).toThrow(/DATABASE_URL is not set/);
     expect(dotenvConfig).toHaveBeenCalledWith({ path: '.env.local' });
     expect(postgresMock).not.toHaveBeenCalled();
   });
@@ -41,7 +41,8 @@ describe('getSql', () => {
     expect(getSql()).toEqual({ tag: 'sql-instance' });
     expect(postgresMock).toHaveBeenCalledWith('postgresql://user:pass@db.example.com:5432/postgres', {
       max: 1,
-      ssl: { rejectUnauthorized: false },
+      ssl: 'verify-full',
+      onnotice: expect.any(Function),
     });
   });
 
@@ -67,13 +68,13 @@ describe('getSql', () => {
     );
   });
 
-  test('postgresql:// 以外の scheme は加工しない', async () => {
-    process.env.DATABASE_URL = 'postgres://user:pass@db.example.com:5432/postgres';
+  test('postgres:// のパスワードも URL エンコードする', async () => {
+    process.env.DATABASE_URL = 'postgres://user:p@ss@db.example.com:5432/postgres';
     const getSql = await importGetSql();
     getSql();
 
     expect(postgresMock).toHaveBeenCalledWith(
-      'postgres://user:pass@db.example.com:5432/postgres',
+      'postgres://user:p%40ss@db.example.com:5432/postgres',
       expect.anything(),
     );
   });

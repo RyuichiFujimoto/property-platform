@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const createServerSupabaseClient = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/auth/supabase', () => ({ createServerSupabaseClient }));
+vi.mock('@/lib/auth/supabase-server', () => ({ createServerSupabaseClient }));
 
 function mockGetUser(result: unknown) {
   createServerSupabaseClient.mockResolvedValue({
@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe('isSupabaseConfigured', () => {
   test('URL と anon key が揃っていれば true', async () => {
-    const { isSupabaseConfigured } = await import('@/lib/auth/session');
+    const { isSupabaseConfigured } = await import('@/lib/auth/env');
 
     expect(isSupabaseConfigured()).toBe(true);
   });
@@ -32,7 +32,7 @@ describe('isSupabaseConfigured', () => {
     '%s が無ければ false',
     async (key) => {
       vi.stubEnv(key, '');
-      const { isSupabaseConfigured } = await import('@/lib/auth/session');
+      const { isSupabaseConfigured } = await import('@/lib/auth/env');
 
       expect(isSupabaseConfigured()).toBe(false);
     },

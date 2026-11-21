@@ -1,19 +1,9 @@
-import { createServerSupabaseClient } from '@/lib/auth/supabase';
+import { isSupabaseConfigured } from '@/lib/auth/env';
+import { createServerSupabaseClient } from '@/lib/auth/supabase-server';
 
 export interface SessionUser {
   id: string;
   email: string | null;
-}
-
-/**
- * Supabase の公開設定が揃っているか。
- * 認証情報が無い環境（CI / ローカル / preview）でもページを 500 にせず、
- * 「準備中」表示へフォールバックするための判定に使う。
- */
-export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

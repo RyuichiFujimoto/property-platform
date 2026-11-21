@@ -1,12 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getSessionUser, isSupabaseConfigured } from '@/lib/auth/session';
-import { createServerSupabaseClient } from '@/lib/auth/supabase';
+import { isSupabaseConfigured } from '@/lib/auth/env';
+import { getSessionUser } from '@/lib/auth/session';
+import { createServerSupabaseClient } from '@/lib/auth/supabase-server';
 import type { AuthFormState, OwnerPropertyFormState } from '@/lib/owner/form-state';
 import { insertOwnerProperty } from '@/lib/owner/queries';
 import { parseCredentials, parseOwnerPropertyInput } from '@/lib/owner/validation';
 import { getPublicMansion } from '@/lib/public/mansion';
+import { getSiteUrl } from '@/lib/site';
 
 const NOT_CONFIGURED_MESSAGE =
   '認証の設定が完了していないため、現在ログイン・登録をご利用いただけません。';
@@ -68,7 +70,7 @@ export async function signUpAction(
   }
 
   const slug = field(formData, 'mansionSlug');
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const siteUrl = getSiteUrl();
   const next = registerPath(slug);
 
   const supabase = await createServerSupabaseClient();
@@ -124,7 +126,7 @@ export async function registerOwnerPropertyAction(
 
   const slug = field(formData, 'mansionSlug');
   const mansion = slug ? await getPublicMansion(slug) : null;
-  if (!mansion) {
+  if (!mansion || mansion.isPreview) {
     return {
       status: 'error',
       message: '対象のマンションが見つかりませんでした。',

@@ -1,5 +1,7 @@
-import { ulid } from 'ulid';
-import { getSql } from '@/lib/db';
+import 'server-only';
+
+import { getSql, isDatabaseConfigured } from '@/lib/db';
+import { idFactory } from '@/lib/ids.js';
 import type { OwnerPropertyInput, UnitDirection } from '@/lib/owner/validation';
 
 export interface OwnerProperty {
@@ -14,9 +16,7 @@ export interface OwnerProperty {
   registeredAt: string | null;
 }
 
-export function newOwnerPropertyId(): string {
-  return `OWP_${ulid()}`;
-}
+export const newOwnerPropertyId = idFactory('OWP');
 
 interface OwnerPropertyRow {
   id: string;
@@ -54,15 +54,15 @@ export type InsertOwnerPropertyResult =
   | { status: 'unavailable' };
 
 /**
- * DB 未接続時は 'unavailable' を返す（`getSql()` と同じ lazy 方針）。
+ * DB 未設定時は 'unavailable' を返す。
  * 同じ部屋が既に登録済みなら unique index により 'duplicate'。
  */
 export async function insertOwnerProperty(
   userId: string,
   input: OwnerPropertyInput,
 ): Promise<InsertOwnerPropertyResult> {
+  if (!isDatabaseConfigured()) return { status: 'unavailable' };
   const sql = getSql();
-  if (!sql) return { status: 'unavailable' };
 
   const rows = await sql<OwnerPropertyRow[]>`
     INSERT INTO owner_properties (
@@ -87,8 +87,8 @@ export async function insertOwnerProperty(
 }
 
 export async function listOwnerProperties(userId: string): Promise<OwnerProperty[]> {
+  if (!isDatabaseConfigured()) return [];
   const sql = getSql();
-  if (!sql) return [];
 
   const rows = await sql<OwnerPropertyRow[]>`
     SELECT id, mansion_id, building_id, room_number, floor, area_sqm, layout, direction, registered_at
@@ -101,8 +101,8 @@ export async function listOwnerProperties(userId: string): Promise<OwnerProperty
 }
 
 export async function countOwnerProperties(userId: string): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
   const sql = getSql();
-  if (!sql) return 0;
 
   const [row] = await sql<{ count: string }[]>`
     SELECT count(*)::text AS count FROM owner_properties WHERE user_id = ${userId}

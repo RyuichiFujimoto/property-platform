@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { OwnerPropertyInput } from '@/lib/owner/validation';
 
 const getSql = vi.hoisted(() => vi.fn());
+const isDatabaseConfigured = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/db', () => ({ getSql }));
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/db', () => ({ getSql, isDatabaseConfigured }));
 
 type Row = Record<string, unknown>;
 
@@ -49,12 +51,13 @@ const ROW = {
 
 beforeEach(() => {
   getSql.mockReset();
+  isDatabaseConfigured.mockReset().mockReturnValue(true);
   vi.resetModules();
 });
 
 describe('insertOwnerProperty', () => {
   test('DB 未接続なら unavailable を返す', async () => {
-    getSql.mockReturnValue(null);
+    isDatabaseConfigured.mockReturnValue(false);
     const { insertOwnerProperty } = await import('@/lib/owner/queries');
 
     await expect(insertOwnerProperty('user-1', INPUT)).resolves.toStrictEqual({
@@ -110,7 +113,7 @@ describe('insertOwnerProperty', () => {
 
 describe('listOwnerProperties', () => {
   test('DB 未接続なら空配列を返す', async () => {
-    getSql.mockReturnValue(null);
+    isDatabaseConfigured.mockReturnValue(false);
     const { listOwnerProperties } = await import('@/lib/owner/queries');
 
     await expect(listOwnerProperties('user-1')).resolves.toStrictEqual([]);
@@ -166,7 +169,7 @@ describe('listOwnerProperties', () => {
 
 describe('countOwnerProperties', () => {
   test('DB 未接続なら 0 を返す', async () => {
-    getSql.mockReturnValue(null);
+    isDatabaseConfigured.mockReturnValue(false);
     const { countOwnerProperties } = await import('@/lib/owner/queries');
 
     await expect(countOwnerProperties('user-1')).resolves.toBe(0);

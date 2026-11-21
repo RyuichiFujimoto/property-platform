@@ -1,5 +1,16 @@
 import { getSql } from '@/lib/db';
+import { isPreviewMode } from '@/lib/env';
+import { logWarn } from '@/lib/errors';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
+import {
+  attrNumber,
+  attrString,
+  groupAttributeMaps,
+  toAttributeMap,
+  type AttributeMap,
+  type AttributeRow,
+  type EntityAttributeRow,
+} from '@/lib/public/attributes';
 
 export interface PublicBuilding {
   id: string;
@@ -31,34 +42,57 @@ export interface PublicMansion {
   mansionType: string | null;
   nearestStation: string | null;
   buildings: PublicBuilding[];
+  /** 架空のプレビュー用データかどうか。true のページは index させない。 */
+  isPreview: boolean;
 }
 
-function isPreviewMode(): boolean {
-  return (
-    process.env.ALLOW_PREVIEW_DATA === 'true' ||
-    process.env.VERCEL_ENV === 'preview' ||
-    process.env.NODE_ENV === 'development'
-  );
+export interface PublicMansionIndexEntry {
+  slug: string;
+  updatedAt: Date | null;
 }
 
-function getAttr(map: Map<string, string | null>, key: string): string | null {
-  const v = map.get(key);
-  return v === undefined ? null : v;
-}
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,127}$/;
 
-function toNum(value: string | null): number | null {
-  if (!value) return null;
-  const n = Number(value);
-  return Number.isNaN(n) ? null : n;
+/**
+ * sitemap に載せる公開マンション。
+ * 公開許可された名称が無いものは公開ページ側で 404 になるため、ここでも除外する。
+ */
+export async function getPublicMansionIndexEntries(): Promise<PublicMansionIndexEntry[]> {
+  // プレビュー環境の fixture は架空データなので sitemap に載せない。
+  if (isPreviewMode()) return [];
+
+  const sql = getSql();
+
+  const rows = await sql`
+    SELECT m.slug, m.updated_at
+    FROM mansions m
+    WHERE m.public_status = 'published'
+      AND m.review_status = 'approved'
+      AND EXISTS (
+        SELECT 1
+        FROM entity_attribute_sources e
+        WHERE e.entity_type = 'mansion'
+          AND e.entity_id = m.id
+          AND e.attribute_name = 'canonical_name'
+          AND e.publication_allowed = true
+      )
+    ORDER BY m.slug
+  `;
+
+  return rows.map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updated_at ?? null,
+  }));
 }
 
 export async function getPublicMansion(slug: string): Promise<PublicMansion | null> {
-  if (isPreviewMode()) {
+  if (!SLUG_PATTERN.test(slug)) return null;
+
+  if (slug === fixtureMansion.slug && isPreviewMode()) {
     return fixtureMansion;
   }
 
   const sql = getSql();
-  if (!sql) return null;
 
   const [mansion] = await sql`
     SELECT id, public_id, project_id, public_status, review_status
@@ -68,17 +102,25 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
 
   if (!mansion) return null;
 
-  const mansionAttrs = await sql`
+  const mansionAttrs = await sql<AttributeRow[]>`
     SELECT attribute_name, attribute_value
     FROM entity_attribute_sources
     WHERE entity_type = 'mansion'
       AND entity_id = ${mansion.id}
       AND publication_allowed = true
   `;
-  const m = new Map(mansionAttrs.map((a) => [a.attribute_name, a.attribute_value]));
-  const canonicalName = getAttr(m, 'canonical_name');
+  const m = toAttributeMap(mansionAttrs);
+  const canonicalName = attrString(m, 'canonical_name');
 
-  if (!canonicalName) return null;
+  // 公開済みなのに公開可能な名称が無いのはデータ不整合。404 にする前に必ず記録する。
+  if (!canonicalName) {
+    logWarn(
+      'public/mansion',
+      'published mansion has no publication-allowed canonical_name, returning not found',
+      { slug, mansionId: mansion.id }
+    );
+    return null;
+  }
 
   const buildings = await sql`
     SELECT id, public_id, canonical_name, building_label
@@ -88,38 +130,51 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
       AND review_status = 'approved'
   `;
 
-  const buildingAttrMap = new Map<string, Map<string, string | null>>();
-  for (const b of buildings) buildingAttrMap.set(b.id, new Map());
+  let buildingAttrMap = new Map<string, AttributeMap>();
 
   if (buildings.length > 0) {
     const buildingIds = buildings.map((b) => b.id);
-    const buildingAttrs = await sql`
+    const buildingAttrs = await sql<EntityAttributeRow[]>`
       SELECT entity_id, attribute_name, attribute_value
       FROM entity_attribute_sources
       WHERE entity_type = 'building'
         AND entity_id IN ${sql(buildingIds)}
         AND publication_allowed = true
     `;
-    for (const a of buildingAttrs) {
-      const map = buildingAttrMap.get(a.entity_id);
-      if (map) map.set(a.attribute_name, a.attribute_value);
-    }
+    const knownBuildingIds = new Set(buildingIds);
+    buildingAttrMap = groupAttributeMaps(
+      buildingAttrs.filter((a) => {
+        if (knownBuildingIds.has(a.entity_id)) return true;
+        logWarn('public/mansion', 'attribute references unknown building, dropping attribute', {
+          slug,
+          buildingId: a.entity_id,
+          attribute: a.attribute_name,
+        });
+        return false;
+      })
+    );
   }
 
   const publicBuildings: PublicBuilding[] = [];
   for (const b of buildings) {
     const attrs = buildingAttrMap.get(b.id);
-    if (!b.canonical_name && !b.building_label) continue;
+    if (!b.canonical_name && !b.building_label) {
+      logWarn('public/mansion', 'skipping building without canonical_name and building_label', {
+        slug,
+        buildingId: b.id,
+      });
+      continue;
+    }
     publicBuildings.push({
       id: b.id,
       canonicalName: b.canonical_name,
       buildingLabel: b.building_label,
-      floorsAbove: toNum(attrs ? getAttr(attrs, 'floors_above') : null),
-      floorsBelow: toNum(attrs ? getAttr(attrs, 'floors_below') : null),
-      totalUnits: toNum(attrs ? getAttr(attrs, 'total_units') : null),
-      structure: getAttr(attrs ?? new Map(), 'structure'),
-      builtYear: toNum(attrs ? getAttr(attrs, 'built_year') : null),
-      builtMonth: toNum(attrs ? getAttr(attrs, 'built_month') : null),
+      floorsAbove: attrNumber(attrs, 'floors_above', b.id),
+      floorsBelow: attrNumber(attrs, 'floors_below', b.id),
+      totalUnits: attrNumber(attrs, 'total_units', b.id),
+      structure: attrString(attrs, 'structure'),
+      builtYear: attrNumber(attrs, 'built_year', b.id),
+      builtMonth: attrNumber(attrs, 'built_month', b.id),
     });
   }
 
@@ -128,18 +183,19 @@ export async function getPublicMansion(slug: string): Promise<PublicMansion | nu
     publicId: mansion.public_id,
     slug,
     canonicalName,
-    address: getAttr(m, 'address'),
-    ward: getAttr(m, 'ward'),
-    town: getAttr(m, 'town'),
-    builtYear: toNum(getAttr(m, 'built_year')),
-    builtMonth: toNum(getAttr(m, 'built_month')),
-    totalUnits: toNum(getAttr(m, 'total_units')),
-    developer: getAttr(m, 'developer'),
-    'constructor': getAttr(m, 'constructor'),
-    managementCompany: getAttr(m, 'management_company'),
-    structure: getAttr(m, 'structure'),
-    mansionType: getAttr(m, 'mansion_type'),
-    nearestStation: getAttr(m, 'nearest_station'),
+    address: attrString(m, 'address'),
+    ward: attrString(m, 'ward'),
+    town: attrString(m, 'town'),
+    builtYear: attrNumber(m, 'built_year', mansion.id),
+    builtMonth: attrNumber(m, 'built_month', mansion.id),
+    totalUnits: attrNumber(m, 'total_units', mansion.id),
+    developer: attrString(m, 'developer'),
+    'constructor': attrString(m, 'constructor'),
+    managementCompany: attrString(m, 'management_company'),
+    structure: attrString(m, 'structure'),
+    mansionType: attrString(m, 'mansion_type'),
+    nearestStation: attrString(m, 'nearest_station'),
     buildings: publicBuildings,
+    isPreview: false,
   };
 }

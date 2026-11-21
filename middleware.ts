@@ -1,29 +1,33 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from '@/lib/auth/env';
 
 /**
- * Supabase の access token を更新し、Server Component 側で最新の session を読めるようにする。
- * 認証情報が未設定の環境では何もしない。
+ * Supabase の session cookie を毎リクエストで更新する。
+ * これが無いと access token の期限切れ後に server 側で session を読めなくなる。
  */
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return NextResponse.next();
-
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(url, anonKey, {
+  if (!isSupabaseConfigured()) {
+    return response;
+  }
+
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
+        }
+        for (const [name, value] of Object.entries(headers)) {
+          response.headers.set(name, value);
         }
       },
     },
@@ -35,5 +39,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/register', '/auth/callback'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

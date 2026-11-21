@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { ConfigurationError } from '@/lib/errors';
 import { fixtureMansion } from '@/lib/fixtures/pr4-mansion';
 
 const getSql = vi.hoisted(() => vi.fn());
@@ -51,10 +52,11 @@ describe('getPublicMansion', () => {
   });
 
   test('preview mode 時は DB を参照せず fixture を返す', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
     process.env.ALLOW_PREVIEW_DATA = 'true';
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
     expect(getSql).not.toHaveBeenCalled();
   });
 
@@ -62,21 +64,45 @@ describe('getPublicMansion', () => {
     process.env.VERCEL_ENV = 'preview';
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
+  });
+
+  test('preview mode でも fixture と異なる slug は DB を参照する', async () => {
+    process.env.VERCEL_ENV = 'preview';
+    const { sql } = createSqlMock([[]]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansion } = await importModule();
+
+    await expect(getPublicMansion(`${fixtureMansion.slug}-other`)).resolves.toBeNull();
+    expect(getSql).toHaveBeenCalled();
+  });
+
+  test.each(['production', undefined])('本番 (VERCEL_ENV=%s) では ALLOW_PREVIEW_DATA が有効でも fixture を返さない', async (vercelEnv) => {
+    vi.stubEnv('VERCEL_ENV', vercelEnv);
+    process.env.ALLOW_PREVIEW_DATA = 'true';
+    const { sql } = createSqlMock([[]]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansion } = await importModule();
+
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toBeNull();
+    expect(getSql).toHaveBeenCalled();
   });
 
   test('NODE_ENV=development でも fixture を返す', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('any-slug')).resolves.toStrictEqual(fixtureMansion);
+    await expect(getPublicMansion(fixtureMansion.slug)).resolves.toStrictEqual(fixtureMansion);
   });
 
-  test('DB 接続が無い場合は null を返す', async () => {
-    getSql.mockReturnValue(null);
+  // 設定ミスを「データが無い」と見せると 404 / noindex として埋もれるので、必ず失敗させる。
+  test('DB 設定が無い場合は例外を伝播させる', async () => {
+    getSql.mockImplementation(() => {
+      throw new ConfigurationError('DATABASE_URL is not set.');
+    });
     const { getPublicMansion } = await importModule();
 
-    await expect(getPublicMansion('fixture-mansion')).resolves.toBeNull();
+    await expect(getPublicMansion('fixture-mansion')).rejects.toThrow(/DATABASE_URL is not set/);
   });
 
   test('公開中の mansion が存在しない場合は null を返す', async () => {
@@ -176,6 +202,7 @@ describe('getPublicMansion', () => {
           builtMonth: null,
         },
       ],
+      isPreview: false,
     });
     expect(queries).toHaveLength(4);
     expect(queries[1]).toContain("publication_allowed = true");
@@ -233,5 +260,82 @@ describe('getPublicMansion', () => {
     const result = await getPublicMansion('test-mansion');
 
     expect(result?.buildings).toEqual([]);
+  });
+
+  test('DB 由来のページは isPreview=false になる', async () => {
+    const { sql } = createSqlMock([
+      [{ id: 'MAN_1', public_id: 'PUB_1' }],
+      [{ attribute_name: 'canonical_name', attribute_value: 'テストマンション' }],
+      [],
+    ]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansion } = await importModule();
+
+    const result = await getPublicMansion('test-mansion');
+
+    expect(result?.isPreview).toBe(false);
+    expect(fixtureMansion.isPreview).toBe(true);
+  });
+});
+
+describe('getPublicMansionIndexEntries', () => {
+  const envKeys = ['ALLOW_PREVIEW_DATA', 'VERCEL_ENV'] as const;
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of envKeys) savedEnv[key] = process.env[key];
+    delete process.env.ALLOW_PREVIEW_DATA;
+    delete process.env.VERCEL_ENV;
+    vi.stubEnv('NODE_ENV', 'production');
+    getSql.mockReset();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    for (const key of envKeys) {
+      if (savedEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedEnv[key];
+    }
+  });
+
+  test('公開マンションの slug と更新日時を返す', async () => {
+    process.env.ALLOW_PREVIEW_DATA = 'true';
+    const updatedAt = new Date('2026-01-02T03:04:05Z');
+    const { sql, queries } = createSqlMock([
+      [
+        { slug: 'park-tower-kachidoki-mid', updated_at: updatedAt },
+        { slug: 'sun-village', updated_at: null },
+      ],
+    ]);
+    getSql.mockReturnValue(sql);
+    const { getPublicMansionIndexEntries } = await importModule();
+
+    await expect(getPublicMansionIndexEntries()).resolves.toEqual([
+      { slug: 'park-tower-kachidoki-mid', updatedAt },
+      { slug: 'sun-village', updatedAt: null },
+    ]);
+    // 公開可能な canonical_name を持つものだけに絞る。
+    expect(queries[0]).toContain("public_status = 'published'");
+    expect(queries[0]).toContain("review_status = 'approved'");
+    expect(queries[0]).toContain('publication_allowed = true');
+  });
+
+  // 架空データの URL を sitemap に載せると、実在しないページを検索エンジンに申告してしまう。
+  test('preview mode では空を返し DB も参照しない', async () => {
+    process.env.VERCEL_ENV = 'preview';
+    const { getPublicMansionIndexEntries } = await importModule();
+
+    await expect(getPublicMansionIndexEntries()).resolves.toEqual([]);
+    expect(getSql).not.toHaveBeenCalled();
+  });
+
+  test('DB 設定が無い場合は例外を伝播させる', async () => {
+    getSql.mockImplementation(() => {
+      throw new ConfigurationError('DATABASE_URL is not set.');
+    });
+    const { getPublicMansionIndexEntries } = await importModule();
+
+    await expect(getPublicMansionIndexEntries()).rejects.toThrow(/DATABASE_URL is not set/);
   });
 });

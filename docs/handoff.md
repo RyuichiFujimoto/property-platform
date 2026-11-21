@@ -42,7 +42,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 - PR4: Public Mansion SEO Page（UI / ルーティング / SEO / データ取得ロジック）
 - CI 修正：`lib/db/index.ts` を lazy 化し、`.env.local` が無くてもビルドが通る
 - Supabase Auth 用ライブラリ追加 + `lib/auth/supabase.ts` 作成
-- PR5: オーナー認証（メール + パスワード）とマイマンション登録の実装（`/register`、`lib/owner/*`、`002_auth_and_owner.sql`）
+- PR5: オーナー認証（メール + パスワード）とマイマンション登録の実装（`/register`、`lib/owner/*`、`003_auth_and_owner.sql`）
 
 ### 正常に動作しているもの
 
@@ -64,7 +64,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 
 - PR5「Owner Authentication & マイマンション登録」
   - `@supabase/ssr`、`@supabase/supabase-js` インストール済み
-  - `lib/auth/supabase.ts` に 3 種類のクライアント作成済み
+  - `lib/auth/supabase-client.ts` と `lib/auth/supabase-server.ts` の分割クライアントを使用
   - `/register` ページ、server action、`owner_properties` 保存を実装済み（`lib/owner/actions.ts` / `lib/owner/queries.ts` / `lib/owner/validation.ts`）
   - 未実施：Supabase 認証情報と DB 接続がある環境での通し確認（実ユーザー作成 → `owner_properties` 保存）
   - ローカル / CI には Supabase の認証情報が無いため、`/register` は「登録機能は準備中」表示にフォールバックする
@@ -199,7 +199,7 @@ PR5「Owner Authentication & マイマンション登録」の実装。
 - `buildings`
 - `units`
 - `users`（Supabase Auth と連携予定）
-- `owner_properties` / `appraisal_requests`（`002_auth_and_owner.sql` で `auth.users` への FK、重複登録防止の unique index、RLS を追加済み）
+- `owner_properties` / `appraisal_requests`（`003_auth_and_owner.sql` で重複登録防止の unique index、Supabase Auth がある場合は `auth.users` への FK と本人用 RLS ポリシーを追加）
 
 ### 登録済みデータ
 

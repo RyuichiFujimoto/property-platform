@@ -54,7 +54,7 @@ supabase db reset
 pnpm db:migrate
 ```
 
-`supabase/migrations/*.sql` をファイル名の昇順にすべて適用します（各ファイルは再実行しても安全な冪等 SQL）。
+`supabase/migrations/*.sql` をファイル名の昇順に適用し、`schema_migrations` に記録済みのファイルはスキップします。
 
 ### 5. seed
 
@@ -100,8 +100,8 @@ pnpm build
 - `/mansion/<slug>` の CTA から `/register?mansion=<slug>` へ遷移します。
 - `/register` では Supabase Auth（メールアドレス + パスワード）でログイン / 新規登録し、棟・部屋番号・階数・専有面積・間取り・方角を入力して `owner_properties` に保存します。
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` が未設定の環境では、エラーにせず「登録機能は準備中」の表示になります。
-- メール確認が有効な Supabase プロジェクトでは、確認メールのリンクが `/auth/callback` を経由して `/register` に戻ります。
-- `owner_properties` / `appraisal_requests` は RLS により本人のみ参照・更新できます（`supabase/migrations/002_auth_and_owner.sql`）。
+- メール確認が有効な場合は、`NEXT_PUBLIC_SITE_URL` の `/auth/callback` を Supabase Auth のリダイレクト許可リストに登録します。確認リンクはこの経路から `/register` に戻ります。
+- `supabase/migrations/003_auth_and_owner.sql` は Supabase Auth がある場合に本人用の RLS ポリシーを追加します。Auth がない PostgreSQL（PostGIS は必要）でも適用できますが、通常の DB ロールには対象テーブルへのアクセスを許可しません。既存の DB に後から Supabase Auth を追加する場合、追跡済みのマイグレーションは自動再実行されないため、Auth 設定後に同ファイルを改めて適用してください。
 
 ## ドキュメント
 

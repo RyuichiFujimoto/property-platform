@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { initialAuthFormState, initialOwnerPropertyFormState } from '@/lib/owner/form-state';
 import type { PublicMansion } from '@/lib/public/mansion';
 
@@ -10,8 +10,9 @@ const insertOwnerProperty = vi.hoisted(() => vi.fn());
 const getPublicMansion = vi.hoisted(() => vi.fn());
 
 vi.mock('next/cache', () => ({ revalidatePath }));
-vi.mock('@/lib/auth/supabase', () => ({ createServerSupabaseClient }));
-vi.mock('@/lib/auth/session', () => ({ getSessionUser, isSupabaseConfigured }));
+vi.mock('@/lib/auth/env', () => ({ isSupabaseConfigured }));
+vi.mock('@/lib/auth/supabase-server', () => ({ createServerSupabaseClient }));
+vi.mock('@/lib/auth/session', () => ({ getSessionUser }));
 vi.mock('@/lib/owner/queries', () => ({ insertOwnerProperty }));
 vi.mock('@/lib/public/mansion', () => ({ getPublicMansion }));
 
@@ -32,6 +33,7 @@ const MANSION: PublicMansion = {
   structure: null,
   mansionType: null,
   nearestStation: null,
+  isPreview: false,
   buildings: [
     {
       id: 'BLD_1',
@@ -66,8 +68,11 @@ function mockAuth(overrides: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://example.com');
   isSupabaseConfigured.mockReturnValue(true);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('signInAction', () => {
   test('Supabase 未設定なら準備中メッセージを返す', async () => {
@@ -144,8 +149,8 @@ describe('signUpAction', () => {
       expect.objectContaining({ email: 'owner@example.com', password: 'password1' }),
     );
     const options = auth.signUp.mock.calls[0][0].options as { emailRedirectTo: string };
-    expect(options.emailRedirectTo).toContain(
-      `/auth/callback?next=${encodeURIComponent('/register?mansion=fixture')}`,
+    expect(options.emailRedirectTo).toBe(
+      `https://example.com/auth/callback?next=${encodeURIComponent('/register?mansion=fixture')}`,
     );
     expect(revalidatePath).toHaveBeenCalledWith('/register?mansion=fixture');
   });
@@ -288,6 +293,17 @@ describe('registerOwnerPropertyAction', () => {
 
     expect(state.status).toBe('error');
     expect(getPublicMansion).not.toHaveBeenCalled();
+  });
+
+  test('プレビュー用マンションは登録しない', async () => {
+    getSessionUser.mockResolvedValue({ id: 'user-1', email: null });
+    getPublicMansion.mockResolvedValue({ ...MANSION, isPreview: true });
+    const { registerOwnerPropertyAction } = await import('@/lib/owner/actions');
+
+    const state = await registerOwnerPropertyAction(initialOwnerPropertyFormState, formData(validForm));
+
+    expect(state.status).toBe('error');
+    expect(insertOwnerProperty).not.toHaveBeenCalled();
   });
 
   test('mansion_id はクライアント入力ではなく公開データから解決する', async () => {
