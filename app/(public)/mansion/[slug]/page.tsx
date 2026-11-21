@@ -1,10 +1,11 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getPublicMansion } from '@/lib/public/mansion';
 import { joinDefined } from '@/lib/format';
+import { getPublicMansion } from '@/lib/public/mansion';
+import { serializeJsonLd } from '@/lib/seo/json-ld';
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string | null }) {
@@ -18,7 +19,8 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     return {
@@ -44,15 +46,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: `/mansion/${data.slug}`,
     },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    // プレビューの fixture は架空データなので index させない。
     robots: {
-      index: true,
+      index: !data.isPreview,
       follow: true,
     },
   };
 }
 
 export default async function MansionDetailPage({ params }: Props) {
-  const data = await getPublicMansion(params.slug);
+  const { slug } = await params;
+  const data = await getPublicMansion(slug);
 
   if (!data) {
     notFound();
@@ -83,7 +92,7 @@ export default async function MansionDetailPage({ params }: Props) {
     <main className="mx-auto max-w-3xl p-6">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
       />
 
       <section className="mb-8">
@@ -94,13 +103,10 @@ export default async function MansionDetailPage({ params }: Props) {
         )}
         {(data.builtYear || data.totalUnits) && (
           <p className="mt-2 text-sm text-slate-500">
-            {joinDefined(
-              [
-                data.builtYear ? `竣工：${data.builtYear}年` : null,
-                data.totalUnits ? `総戸数：${data.totalUnits}戸` : null,
-              ],
-              ' / '
-            )}
+            {joinDefined([
+              data.builtYear ? `竣工：${data.builtYear}年` : null,
+              data.totalUnits ? `総戸数：${data.totalUnits}戸` : null,
+            ])}
           </p>
         )}
       </section>
@@ -128,19 +134,16 @@ export default async function MansionDetailPage({ params }: Props) {
                   {b.buildingLabel ? `（${b.buildingLabel}）` : ''}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {joinDefined(
-                    [
-                      joinDefined(
-                        [
-                          b.floorsAbove ? `地上${b.floorsAbove}階` : null,
-                          b.floorsBelow ? `地下${b.floorsBelow}階` : null,
-                        ],
-                        ' '
-                      ),
-                      b.totalUnits ? `総戸数 ${b.totalUnits}戸` : null,
-                    ],
-                    ' / '
-                  )}
+                  {joinDefined([
+                    joinDefined(
+                      [
+                        b.floorsAbove ? `地上${b.floorsAbove}階` : null,
+                        b.floorsBelow ? `地下${b.floorsBelow}階` : null,
+                      ],
+                      ' '
+                    ),
+                    b.totalUnits ? `総戸数 ${b.totalUnits}戸` : null,
+                  ])}
                 </p>
               </li>
             ))}
@@ -154,7 +157,7 @@ export default async function MansionDetailPage({ params }: Props) {
           マイマンションに登録すると、自宅の参考価格や相場をいつでも確認できます。
         </p>
         <a
-          href="/register"
+          href={`/register?mansion=${encodeURIComponent(data.slug)}`}
           className="mt-4 inline-block rounded-lg bg-slate-900 px-6 py-3 text-white hover:bg-slate-800"
         >
           マイマンションに登録して、今の価格を確認

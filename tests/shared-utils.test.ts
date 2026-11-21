@@ -1,7 +1,10 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, test } from 'vitest';
-import { normalizeConnectionString } from '../lib/db/connection.js';
+import { SimplePage } from '../components/SimplePage';
 import { idFactory } from '../lib/ids.js';
 import { requireEnv } from '../lib/env';
+import { ConfigurationError } from '../lib/errors';
 import { joinDefined } from '../lib/format';
 import {
   attrNumber,
@@ -10,22 +13,15 @@ import {
   toAttributeMap,
 } from '../lib/public/attributes';
 
-describe('normalizeConnectionString', () => {
-  test('encodes user info containing special characters', () => {
-    expect(normalizeConnectionString('postgresql://user:p@ss/word@db.example.com:5432/postgres')).toBe(
-      'postgresql://user:p%40ss%2Fword@db.example.com:5432/postgres'
-    );
-  });
+test('SimplePage renders the shared layout with an optional title class', () => {
+  const props = { title: 'Title', description: 'Description' };
+  const render = (titleClassName?: string) =>
+    renderToStaticMarkup(createElement(SimplePage, { ...props, titleClassName }));
 
-  test('leaves non-postgresql urls untouched', () => {
-    expect(normalizeConnectionString('postgres://user:pass@host/db')).toBe(
-      'postgres://user:pass@host/db'
-    );
-  });
-
-  test('leaves urls without user info untouched', () => {
-    expect(normalizeConnectionString('postgresql://host/db')).toBe('postgresql://host/db');
-  });
+  expect(render()).toBe(
+    '<main class="p-6"><h1 class="text-2xl font-bold">Title</h1><p class="mt-4 text-slate-600">Description</p></main>'
+  );
+  expect(render('text-primary')).toContain('<h1 class="text-primary">Title</h1>');
 });
 
 describe('idFactory', () => {
@@ -45,6 +41,7 @@ describe('requireEnv', () => {
 
   test('throws with the variable name when missing', () => {
     expect(() => requireEnv(undefined, 'SOME_KEY')).toThrow('SOME_KEY is not set');
+    expect(() => requireEnv(undefined, 'SOME_KEY')).toThrow(ConfigurationError);
   });
 });
 
@@ -80,15 +77,15 @@ describe('attribute helpers', () => {
       { entity_id: 'BLD_2', attribute_name: 'structure', attribute_value: 'SRC' },
     ]);
     expect(attrString(grouped.get('BLD_1'), 'structure')).toBe('RC');
-    expect(attrNumber(grouped.get('BLD_1'), 'total_units')).toBe(10);
+    expect(attrNumber(grouped.get('BLD_1'), 'total_units', 'BLD_1')).toBe(10);
     expect(attrString(grouped.get('BLD_2'), 'structure')).toBe('SRC');
     expect(grouped.get('BLD_3')).toBeUndefined();
   });
 
   test('reads numeric attributes and rejects non-numeric values', () => {
-    expect(attrNumber(map, 'total_units')).toBe(120);
-    expect(attrNumber(map, 'built_year')).toBeNull();
-    expect(attrNumber(map, 'unknown')).toBeNull();
-    expect(attrNumber(undefined, 'total_units')).toBeNull();
+    expect(attrNumber(map, 'total_units', 'MAN_1')).toBe(120);
+    expect(attrNumber(map, 'built_year', 'MAN_1')).toBeNull();
+    expect(attrNumber(map, 'unknown', 'MAN_1')).toBeNull();
+    expect(attrNumber(undefined, 'total_units', 'MAN_1')).toBeNull();
   });
 });

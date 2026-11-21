@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface SimplePageProps {
   title: string;
   description: string;
